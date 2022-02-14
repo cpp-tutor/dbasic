@@ -48,7 +48,7 @@ This software is currently under a state of rapid development and should therefo
 * (Optional) Run a command such as that below to test the ARM cross-build and compare generated `basic_lib.s` with the file in `autogen`:
 
 ```
-$ arm-linux-gnueabihf-gcc -mcpu=arm3 -mfpu=vfp -march=armv2 -marm-mfloat-abi=hard -S -O5 runtime/basic_lib.c
+$ arm-linux-gnueabihf-gcc -mcpu=arm3 -mfpu=vfp -march=armv2 -marm -mfloat-abi=hard -S -O5 runtime/basic_lib.c
 ```
 
 * Test the compiler:
@@ -73,11 +73,12 @@ $ ./runtime/run-linux.sh examples/ftball.txt
 ## Resources
 
 Manual for the original Dartmouth BASIC: https://cs.bris.ac.uk/~dave/basic.pdf
+
 Wikipedia: https://en.wikipedia.org/wiki/Dartmouth_BASIC
 
 ## Motivation and Roadmap
 
-The intention is to recreate the original programming enviroment that existed in the late 1960s at Dartmouth College for their GE-225 mainframe, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this.
+The intention is to recreate the original programming enviroment that existed in the late 1960s at Dartmouth College running on a GE-225 mainframe, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this.
 
 Ultimately I'd like to support all of the Dartmouth BASIC's (First thru Sixth) with a runtime switch to turn functionality on and off. The complete set of keywords from Basic The First (1964) is available apart from `DEF` and `FN`, and also with `INPUT` from Basic The Third to enable the Football Championship program `ftball.txt` to run.
 
