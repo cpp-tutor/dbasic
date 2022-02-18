@@ -1,20 +1,26 @@
 import std.stdio;
 import std.string;
 import std.algorithm;
+import Expr;
 
 class SymbolTable {
     private enum Line { Unknown, Exists, Referenced, ExistsRef };
     private Line[ushort] lines;
     private int current_line = -1;
     private int nerrs = 0;
+    immutable int max_errs = 5;
     private bool end_of_program = false;
     private bool[] id_initialized;
     private string[] id_list, string_list;
     private double[] constant_list, data_list;
     private ushort[int] arrays;
+    public struct Function { int param_ident; Expr fn_expr; }
+    private Function[int] functions;
     void error(string msg) {
-        stderr.writeln(msg, " AT LINE ", current_line);
-        ++nerrs;
+        if (nerrs < max_errs) {
+            stderr.writeln(msg, " AT LINE ", current_line);
+            ++nerrs;
+        }
     }
     @property auto errors() {
         return nerrs;
@@ -104,12 +110,29 @@ class SymbolTable {
         }
         return lines[l] == Line.ExistsRef;
     }
-    string getID(int i) {
+    string getID(int i, bool fun = false) {
         assert((i >= 0) && (i < id_list.length));
-        if (!id_initialized[i]) {
+        if (!id_initialized[i] && !fun) {
             error("NO SUCH VARIABLE");
         }
         return id_list[i];
+    }
+    void addFunction(int n, Function f) {
+        if (n !in functions) {
+            functions[n] = f;
+        }
+        else {
+            error("FUNCTION ALREADY DEFINED");
+        }
+    }
+    Function getFunction(int n) {
+        if (n !in functions) {
+            error("NO SUCH FUNCTION");
+            return Function(0, new Constant(installConstant(0.0)));
+        }
+        else {
+            return functions[n];
+        }
     }
     void codegen() {
         foreach (i, id; id_list) {

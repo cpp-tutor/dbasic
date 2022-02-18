@@ -1,5 +1,6 @@
 import std.stdio;
 import Node;
+import SymbolTable;
 
 public enum Op { Add, Sub, Mul, Div, Exp, Neg };
 public immutable int number_fp_regs = 8;
@@ -46,7 +47,7 @@ class Expr : Node {
         }
     }
     private int result_reg;
-    protected void setResultReg(int r) {
+    protected void setResult(int r) {
         result_reg = r;
     }
     @property int result() {
@@ -63,7 +64,7 @@ class Constant : Expr {
         constant = n;
     }
     override void codegen() {
-        setResultReg(allocateReg());
+        setResult(allocateReg());
         writeln("\tadrl\tr0, ._c", constant);
         writeln("\tvldr.f64\td", result, ", [r0]");
     }
@@ -75,7 +76,7 @@ class Identifier : Expr {
         ident = i;
     }
     override void codegen() {
-        setResultReg(allocateReg());
+        setResult(allocateReg());
         writeln("\tadrl\tr0, .", symtab.getID(ident));
         writeln("\tvldr.f64\td", result, ", [r0]");
     }
@@ -89,7 +90,7 @@ class Array : Expr {
     }
     override void codegen() {
         left.codegen();
-        setResultReg((cast(Expr)left).result);
+        setResult((cast(Expr)left).result);
         writeln("\tvcvt.s32.f64\ts0, d", result);
         writeln("\tvmov\tr0, s0");
         writeln("\tadrl\tr1, ._size", symtab.getID(ident));
@@ -115,7 +116,7 @@ class Operation : Expr {
     override void codegen() {
         assert(left !is null);
         left.codegen();
-        setResultReg((cast(Expr)left).result); // no need for allocateReg()
+        setResult((cast(Expr)left).result); // no need for allocateReg()
         if (right) {
             right.codegen();
             deallocateReg((cast(Expr)right).result);
@@ -151,7 +152,7 @@ class Operation : Expr {
 }
 
 class MathFn : Expr {
-    string fn_ident;
+    private string fn_ident;
     this(string fn_id, Expr e) {
         fn_ident = fn_id;
         left = e;
@@ -159,11 +160,11 @@ class MathFn : Expr {
     override void codegen() {
         if (fn_ident != "RND") {
             left.codegen();
-            setResultReg((cast(Expr)left).result); // no need for allocateReg()
+            setResult((cast(Expr)left).result); // no need for allocateReg()
             writeln("\tvmov.f64\td0, d", result);
         }
         else {
-            setResultReg(allocateReg());
+            setResult(allocateReg());
         }
         push_fp_regs(); // is this necessary?
         switch (fn_ident) {
@@ -205,5 +206,22 @@ class MathFn : Expr {
         }
         pop_fp_regs();
         writeln("\tvmov.f64\td", result, ", d0");
+    }
+}
+
+class FunctionCall : Expr {
+    private int fn_ident;
+    private Expr arg;
+    this(int i, Expr e) {
+        fn_ident = i;
+        arg = e;
+    }
+    override void codegen() {
+        SymbolTable.SymbolTable.Function fun = symtab.getFunction(fn_ident);
+        arg.codegen();
+        writeln("\tadrl\tr0, .", symtab.getID(fun.param_ident));
+        writeln("\tvstr.f64\td", arg.result, ", [r0]");
+        fun.fn_expr.codegen();
+        setResult(fun.fn_expr.result);
     }
 }

@@ -8,7 +8,7 @@ import Node;
 int main() {
     auto symtab = new SymbolTable();
     auto lexer = new LexerImpl(symtab);
-    writeln("# Edition: BASIC The ", to!string(lexer.edition));
+    stderr.writeln("Edition: BASIC The ", to!string(lexer.edition));
     auto head = new Node(symtab);
     auto parser = new Parser(lexer, symtab, head);
     try {

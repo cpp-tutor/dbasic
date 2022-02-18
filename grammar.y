@@ -58,6 +58,7 @@ Stmt    : Lineno { next = next.link($$); }
         | READ ReadSq EOL {}
         | INPUT InputSq EOL {}
         | DIM IDENT LPAREN INTEGER RPAREN EOL { symtab.initializeDIM($2, true, cast(ushort)$4); }
+        | DEF FN IDENT LPAREN IDENT RPAREN RELOP Expr EOL { assert($7 == TokenKind.EQ); symtab.initializeID($5); symtab.addFunction($3, SymbolTable.SymbolTable.Function($5, $8)); }
         | RETURN EOL { $$ = new Return(); next = next.link($$); }
         | REM EOL { }
         | END EOL { symtab.endOfProgram(); }
@@ -98,11 +99,13 @@ ReadSq  : IDENT { $$ = new Read($1); next = next.link($$); }
 
 InputSq : IDENT { $$ = new Input($1); next = next.link($$); }
         | InputSq COMMA IDENT { $$ = new Input($3); next = next.link($$); }
+        ;
 
 Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         | INTEGER { $$ = new Constant(symtab.installConstant($1)); }
         | IDENT { $$ = new Identifier($1); }
         | MATHFN Expr RPAREN { $$ = new MathFn($1, $2); }
+        | FN IDENT LPAREN Expr RPAREN { $$ = new FunctionCall($2, $4); }
         | IDENT LPAREN Expr RPAREN { $$ = new Array($1, $3); }
         | Expr PLUS Expr { $$ = new Operation($1, Op.Add, $3); }
         | Expr MINUS Expr { $$ = new Operation($1, Op.Sub, $3); }
