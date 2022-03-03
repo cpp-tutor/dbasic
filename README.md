@@ -1,17 +1,20 @@
 # dbasic
-Modern implementation of the original Dartmouth BASIC compilers in the D programming language
+
+Modern implementation of the original Dartmouth BASIC compilers from the 1960s in the D programming language.
 
 This software is currently under a state of rapid development and should therefore be considered alpha quality.
 
 ## Prerequisites
 
-* Recent D compiler, only tested with `gdc` from gcc-trunk (v8.3.0 does NOT work)
+* Recent D compiler, only tested with `gdc` from gcc-trunk under Linux (v8.3.0 does NOT work) and DMD (v2.098.1) under Windows
 
-* Recent (probably trunk) `bison`, see https://github.com/akimd/bison and reqired patch below
+* Recent (ideally trunk) `bison`, see https://github.com/akimd/bison or https://github.com/lexxmark/winflexbison and reqired patch below
 
-* Toolchain for ARM (32-bit) hard float (hf), tested with `arm-linux-gnueabihf-gcc` under Debian
+* Toolchain for ARM (32-bit) hard-float (hf), tested with `arm-linux-gnueabihf-gcc` under Debian
 
 * ARM emulator `qemu-arm` (tested with v3.1.0 under Debian), or possibly (untested) hardware running a hard-float (hf) build such as Raspbian
+
+* (Untested) Instead of the last two steps, it may be possible to use `qemu-system-arm` running a hard-float ARM OS.
 
 ## Setting up
 
@@ -43,7 +46,7 @@ This software is currently under a state of rapid development and should therefo
 
 * (Optional) Run `bison grammar.y` and compare the generated `Parser.d` with the file in `autogen`
 
-* Generate a native executable `dbasic` by running the Makefile, altering it to reference `bison` and `gdc` as necessary
+* Generate a native executable `dbasic` by running the GNU Makefile (or NMAKE Makefile under Windows) as `make`, altering it to reference `bison`/`win_bison.exe` and `gdc`/`dmd.exe` as necessary. (Windows needs a Visual Studio command prompt with `dmd2vars32.bat` executed in it, with the command `nmake /f Makefile.nmake`).
 
 * (Optional) Run a command such as that below to test the ARM cross-build and compare generated `basic_lib.s` with the file in `autogen`:
 
@@ -54,7 +57,7 @@ $ arm-linux-gnueabihf-gcc -mcpu=arm3 -mfpu=vfp -march=armv2 -marm -mfloat-abi=ha
 * Test the compiler:
 
 ```
-$ ./dbasic < examples/example1.bas > test.s
+$ ./dbasic < examples/example-p12.bas > test.s
 $ arm-linux-gnueabihf-gcc test.s basic_lib.s -lm
 ```
 
@@ -74,14 +77,18 @@ $ ./runtime/run-linux.sh examples/ftball.txt
 
 Manual for the original Dartmouth BASIC: https://cs.bris.ac.uk/~dave/basic.pdf
 
+See the `examples` directory for all of the BASIC programs in the above document.
+
 Wikipedia: https://en.wikipedia.org/wiki/Dartmouth_BASIC
 
 ## Motivation and Roadmap
 
-The intention is to recreate the original programming enviroment that existed in the late 1960s at Dartmouth College running on a GE-225 mainframe, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this.
+The intention is to recreate the original programming enviroment that existed in the late 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
 
-Ultimately I'd like to support all of the Dartmouth BASIC's (First thru Sixth) with a runtime switch to turn functionality on and off. The complete set of keywords from Basic The First (1964) is available apart from `DEF` and `FN`, and also with `INPUT` from Basic The Third to enable the Football Championship program `ftball.txt` to run.
+Ultimately I'd like to support all of the Dartmouth BASICs (First thru Sixth); there is a runtime switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords from Basic The First (1964) is available **now including one- and two-dimensional arrays** ~~apart from `DEF` and `FN`~~, and also with `INPUT` from Basic The Third to enable the Football Championship program `ftball.txt` to run.
+
+* 2022/03/03: Tag 0.10.1 (hopefully) complete implementation of Basic The First
 
 ## Bugs
 
-Please do report bugs, together with working or non-working BASIC code.
+Please do report bugs, together with correct or incorrect BASIC input files.
