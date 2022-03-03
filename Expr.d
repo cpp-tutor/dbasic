@@ -1,6 +1,6 @@
-import std.stdio;
-import Node;
-import SymbolTable;
+import std.stdio : writeln, write;
+import Node : Node;
+import SymbolTable : SymbolTable;
 
 public enum Op { Add, Sub, Mul, Div, Exp, Neg };
 public immutable int number_fp_regs = 8;
@@ -23,28 +23,36 @@ class Expr : Node {
                 return r;
             }
         }
-        throw new Exception("expression too complex");
+        throw new Exception("ILLEGAL FORMULA");
     }
     static void deallocateReg(int r) {
         if (regs[r] == Register.InUse) {
             regs[r] = Register.Available;
             return;
         }
-        throw new Exception("bad deallocateReg()");
+        throw new Exception("BAD CALL TO Expr.deallocateReg()");
     }
     static void push_fp_regs() {
-        for (int r = regs.length - 1; r >= 0; --r) {
-            if (regs[r] == Register.InUse) {
-                writeln("\tvpush\t{d", r, "}");
-            }
-        }
-    }
-    static void pop_fp_regs() {
+        auto sep = " ";
+        write("\tvpush\t{");
         for (int r = 0; r < regs.length; ++r) {
             if (regs[r] == Register.InUse) {
-                writeln("\tvpop\t{d", r, "}");
+                write(sep, "d", r);
+                sep = ", ";
             }
         }
+        writeln(" }");
+    }
+    static void pop_fp_regs() {
+        auto sep = " ";
+        write("\tvpop\t{");
+        for (int r = 0; r < regs.length; ++r) {
+            if (regs[r] == Register.InUse) {
+                write(sep, "d", r);
+                sep = ", ";
+            }
+        }
+        writeln(" }");
     }
     private int result_reg;
     protected void setResult(int r) {
@@ -54,7 +62,7 @@ class Expr : Node {
         return result_reg;
     }
     override void codegen() {
-        throw new Exception("cannot call Expr.codegen()");
+        throw new Exception("CANNOT CALL Expr.codegen()");
     }
 }
 
@@ -77,12 +85,12 @@ class Identifier : Expr {
     }
     override void codegen() {
         setResult(allocateReg());
-        writeln("\tadrl\tr0, .", symtab.getID(ident));
+        writeln("\tadrl\tr0, .", symtab.getId(ident));
         writeln("\tvldr.f64\td", result, ", [r0]");
     }
 }
 
-class Array : Expr {
+class Dim : Expr {
     private int ident;
     this(int i, Expr idx) {
         ident = i;
@@ -93,15 +101,54 @@ class Array : Expr {
         setResult((cast(Expr)left).result);
         writeln("\tvcvt.s32.f64\ts0, d", result);
         writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._size", symtab.getID(ident));
+        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
         writeln("\tldr\tr1, [r1]");
         writeln("\tcmp\tr0, r1");
         writeln("\tmovgt\tr0, #4"); // error: index out of bounds
         writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
         writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tbgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._data", symtab.getID(ident));
+        writeln("\tblgt\truntime_error(PLT)");
+        writeln("\tadrl\tr1, ._data", symtab.getId(ident));
         writeln("\tadd\tr0, r1, r0, LSL #3"); // r0 is index
+        writeln("\tvldr.f64\td", result, ", [r0]");
+    }
+}
+
+class Dim2 : Expr {
+    private int ident;
+    private class Expr2 : Node { // note: horrible, horrible hack
+        this(Expr a, Expr b) {
+            left = a;
+            right = b;
+        }
+        @property ref Node leftFromExpr2() {
+            return left;
+        }
+        @property ref Node rightFromExpr2() {
+            return right;
+        }
+    }
+    this(int i, Expr idx1, Expr idx2) {
+        ident = i;
+        left = new Expr2(idx1, idx2);
+    }
+    override void codegen() {
+        (cast(Expr2)left).leftFromExpr2.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)((cast(Expr2)left).leftFromExpr2)).result);
+        writeln("\tvmov\tr0, s0");
+        deallocateReg((cast(Expr)((cast(Expr2)left).leftFromExpr2)).result);
+        writeln("\tpush\t{ r0 }");
+        ((cast(Expr2)left).rightFromExpr2).codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)((cast(Expr2)left).rightFromExpr2)).result);
+        writeln("\tvmov\tr2, s0");
+        setResult((cast(Expr)((cast(Expr2)left).rightFromExpr2)).result);
+        writeln("\tpop\t{ r1 }");
+        writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
+        writeln("\tldr\tr3, [r0, #4]"); // sz2
+        writeln("\tadd\tr3, r3, #1");
+        writeln("\tmla\tr3, r1, r3, r2"); // idx1 * (sz2 + 1) + idx2
+        writeln("\tadrl\tr0, ._data2", symtab.getId(ident));
+        writeln("\tadd\tr0, r0, r3, LSL#3");
         writeln("\tvldr.f64\td", result, ", [r0]");
     }
 }
@@ -114,7 +161,9 @@ class Operation : Expr {
         op = o;
     }
     override void codegen() {
-        assert(left !is null);
+        if (left is null) {
+            throw new Exception("NULL EXPRESSION");
+        }
         left.codegen();
         setResult((cast(Expr)left).result); // no need for allocateReg()
         if (right) {
@@ -146,7 +195,7 @@ class Operation : Expr {
                 writeln("\tvneg.f64\td", result, ", d", (cast(Expr)left).result);
                 break;
             default:
-                throw new Exception("bad Op");
+                throw new Exception("BAD Op");
         }
     }
 }
@@ -190,7 +239,10 @@ class MathFn : Expr {
                 writeln("\tbl\tatan(PLT)");
                 break;
             case "INT":
-                writeln("\tbl\tfloor(PLT)");
+                writeln("\tvcmp.f64\td0, #0");
+                writeln("\tvmrs\tAPSR_nzcv, FPSCR");
+                writeln("\tblgt\tfloor(PLT)");
+                writeln("\tbllt\tceil(PLT)");
                 break;
             case "LOG":
                 writeln("\tbl\tlog(PLT)");
@@ -201,15 +253,18 @@ class MathFn : Expr {
             case "RND":
                 writeln("\tbl\trandom_lcg(PLT)");
                 break;
+            case "ABS":
+                writeln("\tbl\tfabs(PLT)");
+                break;
             default:
-                throw new Exception("bad MathFn");
+                throw new Exception("BAD MathFn");
         }
         pop_fp_regs();
         writeln("\tvmov.f64\td", result, ", d0");
     }
 }
 
-class FunctionCall : Expr {
+class FnCall : Expr {
     private int fn_ident;
     private Expr arg;
     this(int i, Expr e) {
@@ -217,11 +272,11 @@ class FunctionCall : Expr {
         arg = e;
     }
     override void codegen() {
-        SymbolTable.SymbolTable.Function fun = symtab.getFunction(fn_ident);
+        auto func = symtab.getFunction(fn_ident);
         arg.codegen();
-        writeln("\tadrl\tr0, .", symtab.getID(fun.param_ident));
+        writeln("\tadrl\tr0, .", symtab.getId(func.param_ident));
         writeln("\tvstr.f64\td", arg.result, ", [r0]");
-        fun.fn_expr.codegen();
-        setResult(fun.fn_expr.result);
+        func.fn_expr.codegen();
+        setResult(func.fn_expr.result);
     }
 }

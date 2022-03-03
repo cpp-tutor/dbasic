@@ -17,7 +17,13 @@ void print_string(const char *s) {
 
 void print_number(double n) {
     char buffer[TmpBufSz];
-    snprintf(buffer, TmpBufSz, " %.6g", n);
+    snprintf(buffer, TmpBufSz, "% .6g", n);
+    print_string(buffer);
+}
+
+void print_integer(int i) {
+    char buffer[TmpBufSz];
+    snprintf(buffer, TmpBufSz, "%d", i);
     print_string(buffer);
 }
 
@@ -53,10 +59,12 @@ void print_semicolon() {
 
 void read_number(double *n) {
     char buffer[TmpBufSz];
-    print_newline();
+    /* print_newline(); */
     print_string("? ");
     fgets(buffer, TmpBufSz, stdin);
     sscanf(buffer, "%lf", n);
+    pos = 0;
+    ++vpos;
 }
 
 void read_string(char *s, size_t n) {
@@ -66,6 +74,8 @@ void read_string(char *s, size_t n) {
         ++p;
     }
     *p = '\0';
+    pos = 0;
+    ++vpos;
 }
 
 double random_lcg() {
@@ -74,7 +84,7 @@ double random_lcg() {
     return x * 1.0 / (1u << 31);
 }
 
-void runtime_error(int err, int line) {
+void runtime_error(int err, unsigned short line) {
     switch (err) {
         case 1:
             print_string("OUT OF DATA");
@@ -96,8 +106,8 @@ void runtime_error(int err, int line) {
             break;
     }
     if (line != -1) {
-        print_string(" AT LINE");
-        print_number(line);
+        print_string(" AT LINE ");
+        print_integer(line);
     }
     print_newline();
     exit(err);

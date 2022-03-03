@@ -1,6 +1,6 @@
-import std.stdio;
-import Node;
-import Expr;
+import std.stdio : writeln;
+import Node : Node;
+import Expr : Expr;
 
 class Printable : Node {
     private static bool print_newline = true;
@@ -65,7 +65,7 @@ class PrintExpr : Node {
         left = e;
     }
     override void codegen() {
-        Expr.Expr.clearRegs();
+        Expr.clearRegs();
         left.codegen();
         writeln("\tvmov.f64\td0, d", (cast(Expr)left).result);
         writeln("\tbl\tprint_number(PLT)");

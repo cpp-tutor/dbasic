@@ -1,7 +1,7 @@
-import std.stdio;
-import std.string;
-import std.algorithm;
-import Expr;
+import std.stdio : writeln, stderr;
+import std.algorithm : countUntil;
+import std.typecons : Tuple, tuple;
+import Expr : Expr, Constant;
 
 class SymbolTable {
     private enum Line { Unknown, Exists, Referenced, ExistsRef };
@@ -13,7 +13,8 @@ class SymbolTable {
     private bool[] id_initialized;
     private string[] id_list, string_list;
     private double[] constant_list, data_list;
-    private ushort[int] arrays;
+    private ushort[int] dims;
+    private Tuple!(ushort,ushort)[int] dims2;
     public struct Function { int param_ident; Expr fn_expr; }
     private Function[int] functions;
     void error(string msg) {
@@ -56,7 +57,7 @@ class SymbolTable {
             lines[l] = Line.ExistsRef;
         }
     }
-    int installID(string id) {
+    int installId(string id) {
         auto pos = countUntil(id_list, id);
         if (pos != -1) {
             return cast(int)pos;
@@ -67,12 +68,20 @@ class SymbolTable {
             return cast(int)(id_list.length - 1);
         }
     }
-    void initializeID(int id) {
+    void initializeId(int id) {
         id_initialized[id] = true;
     }
-    void initializeDIM(int id, bool explicit_dim = false, ushort sz = 10) {
-        if (id !in arrays) {
-            arrays[id] = sz;
+    void initializeDim(int id, bool explicit_dim = false, ushort sz = 10) {
+        if (id !in dims) {
+            dims[id] = sz;
+        }
+        else if (explicit_dim) {
+            error("DIM ALREADY USED");
+        }
+    }
+    void initializeDim2(int id, bool explicit_dim = false, ushort sz1 = 10, ushort sz2 = 10) {
+        if (id !in dims2) {
+            dims2[id] = tuple(sz1, sz2);
         }
         else if (explicit_dim) {
             error("DIM ALREADY USED");
@@ -103,16 +112,18 @@ class SymbolTable {
     }
     bool referencedLine(ushort l) {
         if (l !in lines) {
-            throw new Exception("bad line");
+            throw new Exception("BAD LINE");
         }
         if (lines[l] == Line.Referenced) {
-            throw new Exception("non-existent line");
+            throw new Exception("NON-EXISTENT LINE");
         }
         return lines[l] == Line.ExistsRef;
     }
-    string getID(int i, bool fun = false) {
-        assert((i >= 0) && (i < id_list.length));
-        if (!id_initialized[i] && !fun) {
+    string getId(int i, bool func = false) {
+        if ((i < 0) || (i >= id_list.length)) {
+            throw new Exception("BAD IDENT");
+        }
+        if (!id_initialized[i] && !func) {
             error("NO SUCH VARIABLE");
         }
         return id_list[i];
@@ -125,10 +136,11 @@ class SymbolTable {
             error("FUNCTION ALREADY DEFINED");
         }
     }
-    Function getFunction(int n) {
+    ref Function getFunction(int n) {
         if (n !in functions) {
             error("NO SUCH FUNCTION");
-            return Function(0, new Constant(installConstant(0.0)));
+            functions[n] = Function(0, new Constant(installConstant(0.0)));
+            return functions[n];
         }
         else {
             return functions[n];
@@ -151,11 +163,19 @@ class SymbolTable {
                 writeln("\t.double\t", d);
             }
         }
-        foreach (k, v; arrays) {
+        foreach (k, v; dims) {
             writeln("._size", id_list[k], ":\n\t.word\t", v);
             writeln("\t.balign 8");
             writeln("._data", id_list[k], ":");
             for (int i = 0; i <= v; ++i) { // note: <=
+                writeln("\t.double\t0.0");
+            }
+        }
+        foreach (k, v; dims2) {
+            writeln("._size2", id_list[k], ":\n\t.word\t", v[0], "\n\t.word\t", v[1]);
+            writeln("\t.balign 8");
+            writeln("._data2", id_list[k], ":");
+            for (int i = 0; i < ((v[0] + 1) * (v[1] + 1)); ++i) {
                 writeln("\t.double\t0.0");
             }
         }

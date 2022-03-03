@@ -117,8 +117,8 @@ private union YYSemanticType
   Parser.Node PrintSq;                     /* PrintSq  */
   Parser.Node Print;                       /* Print  */
   Parser.Node Tab;                         /* Tab  */
-  Parser.Node ReadSq;                      /* ReadSq  */
-  Parser.Node InputSq;                     /* InputSq  */
+  Parser.Node Read;                        /* Read  */
+  Parser.Node Input;                       /* Input  */
   double NUMBER;                           /* NUMBER  */
   int IDENT;                               /* IDENT  */
   int STRING;                              /* STRING  */
@@ -262,8 +262,10 @@ class Parser
     DataSq = 58,                   /* DataSq  */
     Data = 59,                     /* Data  */
     ReadSq = 60,                   /* ReadSq  */
-    InputSq = 61,                  /* InputSq  */
-    Expr = 62,                     /* Expr  */
+    Read = 61,                     /* Read  */
+    InputSq = 62,                  /* InputSq  */
+    Input = 63,                    /* Input  */
+    Expr = 64,                     /* Expr  */
     }
 
     private int yycode_;
@@ -289,7 +291,8 @@ class Parser
   "LE", "GE", "GT", "LPAREN", "RPAREN", "DOLLAR", "COMMA", "SEMICOLON",
   "EOL", "WS", "BLANKLINE", "BADLINE", "PLUS", "MINUS", "TIMES", "DIVIDE",
   "UMINUS", "EXP", "$accept", "Stmts", "Stmt", "Lineno", "PrintSq",
-  "Print", "Tab", "DataSq", "Data", "ReadSq", "InputSq", "Expr", null
+  "Print", "Tab", "DataSq", "Data", "ReadSq", "Read", "InputSq", "Input",
+  "Expr", null
       ];
 
       sink.formattedWrite!"%s"(yy_sname[yycode_]);
@@ -428,267 +431,302 @@ this.symtab = symtab;
     switch (yyn)
     {
     case 4: /* Stmt: Lineno  */
-#line 46 "grammar.y"
+#line 45 "grammar.y"
                  { next = next.link((yyval.Stmt)); }
       break;
 
     case 5: /* Stmt: STOP EOL  */
-#line 47 "grammar.y"
+#line 46 "grammar.y"
                    { (yyval.Stmt) = new Stop(); next = next.link((yyval.Stmt)); }
       break;
 
     case 6: /* Stmt: PRINT PrintSq EOL  */
-#line 48 "grammar.y"
+#line 47 "grammar.y"
                             { ((yystack.valueAt (1)).PrintSq).linkLast(new NewLine()); (yyval.Stmt) = new Printable(((yystack.valueAt (1)).PrintSq)); next = next.link((yyval.Stmt)); }
       break;
 
     case 7: /* Stmt: GOTO INTEGER EOL  */
-#line 49 "grammar.y"
+#line 48 "grammar.y"
                            { symtab.registerFlow(cast(ushort)((yystack.valueAt (1)).INTEGER)); (yyval.Stmt) = new Goto(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
       break;
 
     case 8: /* Stmt: GOSUB INTEGER EOL  */
-#line 50 "grammar.y"
+#line 49 "grammar.y"
                             { symtab.registerFlow(cast(ushort)((yystack.valueAt (1)).INTEGER)); (yyval.Stmt) = new GoSub(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
       break;
 
     case 9: /* Stmt: LET IDENT RELOP Expr EOL  */
-#line 51 "grammar.y"
-                                   { assert(((yystack.valueAt (2)).RELOP) == TokenKind.EQ); (yyval.Stmt) = new Let(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
+#line 50 "grammar.y"
+                                   { if (((yystack.valueAt (2)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); (yyval.Stmt) = new Let(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
     case 10: /* Stmt: LET IDENT LPAREN Expr RPAREN RELOP Expr EOL  */
-#line 52 "grammar.y"
-                                                      { assert(((yystack.valueAt (2)).RELOP) == TokenKind.EQ); (yyval.Stmt) = new LetDim(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
+#line 51 "grammar.y"
+                                                      { if (((yystack.valueAt (2)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); (yyval.Stmt) = new LetDim(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
-    case 11: /* Stmt: IF Expr RELOP Expr THEN INTEGER EOL  */
+    case 11: /* Stmt: LET IDENT LPAREN Expr COMMA Expr RPAREN RELOP Expr EOL  */
+#line 52 "grammar.y"
+                                                                 { if (((yystack.valueAt (2)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); (yyval.Stmt) = new LetDim2(((yystack.valueAt (8)).IDENT), ((yystack.valueAt (6)).Expr), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
+      break;
+
+    case 12: /* Stmt: IF Expr RELOP Expr THEN INTEGER EOL  */
 #line 53 "grammar.y"
                                               { (yyval.Stmt) = new If(((yystack.valueAt (5)).Expr), ((yystack.valueAt (4)).RELOP), ((yystack.valueAt (3)).Expr), cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
       break;
 
-    case 12: /* Stmt: FOR IDENT RELOP Expr TO Expr STEP Expr EOL  */
+    case 13: /* Stmt: FOR IDENT RELOP Expr TO Expr STEP Expr EOL  */
 #line 54 "grammar.y"
-                                                     { assert(((yystack.valueAt (6)).RELOP) == TokenKind.EQ); (yyval.Stmt) = new For(((yystack.valueAt (7)).IDENT), ((yystack.valueAt (5)).Expr), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
+                                                     { if (((yystack.valueAt (6)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); (yyval.Stmt) = new For(((yystack.valueAt (7)).IDENT), ((yystack.valueAt (5)).Expr), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
-    case 13: /* Stmt: FOR IDENT RELOP Expr TO Expr EOL  */
+    case 14: /* Stmt: FOR IDENT RELOP Expr TO Expr EOL  */
 #line 55 "grammar.y"
-                                           { assert(((yystack.valueAt (4)).RELOP) == TokenKind.EQ); (yyval.Stmt) = new For(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr), new Constant(symtab.installConstant(1.0))); next = next.link((yyval.Stmt)); }
+                                           { if (((yystack.valueAt (4)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); (yyval.Stmt) = new For(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr), new Constant(symtab.installConstant(1.0))); next = next.link((yyval.Stmt)); }
       break;
 
-    case 14: /* Stmt: NEXT IDENT EOL  */
+    case 15: /* Stmt: NEXT IDENT EOL  */
 #line 56 "grammar.y"
                          { (yyval.Stmt) = new Next(((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
-    case 15: /* Stmt: DATA DataSq EOL  */
+    case 16: /* Stmt: DATA DataSq EOL  */
 #line 57 "grammar.y"
                           {}
       break;
 
-    case 16: /* Stmt: READ ReadSq EOL  */
+    case 17: /* Stmt: READ ReadSq EOL  */
 #line 58 "grammar.y"
                           {}
       break;
 
-    case 17: /* Stmt: INPUT InputSq EOL  */
+    case 18: /* Stmt: INPUT InputSq EOL  */
 #line 59 "grammar.y"
                             {}
       break;
 
-    case 18: /* Stmt: DIM IDENT LPAREN INTEGER RPAREN EOL  */
+    case 19: /* Stmt: DIM IDENT LPAREN INTEGER RPAREN EOL  */
 #line 60 "grammar.y"
-                                              { symtab.initializeDIM(((yystack.valueAt (4)).IDENT), true, cast(ushort)((yystack.valueAt (2)).INTEGER)); }
+                                              { symtab.initializeDim(((yystack.valueAt (4)).IDENT), true, cast(ushort)((yystack.valueAt (2)).INTEGER)); }
       break;
 
-    case 19: /* Stmt: DEF FN IDENT LPAREN IDENT RPAREN RELOP Expr EOL  */
+    case 20: /* Stmt: DIM IDENT LPAREN INTEGER COMMA INTEGER RPAREN EOL  */
 #line 61 "grammar.y"
-                                                          { assert(((yystack.valueAt (2)).RELOP) == TokenKind.EQ); symtab.initializeID(((yystack.valueAt (4)).IDENT)); symtab.addFunction(((yystack.valueAt (6)).IDENT), SymbolTable.SymbolTable.Function(((yystack.valueAt (4)).IDENT), ((yystack.valueAt (1)).Expr))); }
+                                                            { symtab.initializeDim2(((yystack.valueAt (6)).IDENT), true, cast(ushort)((yystack.valueAt (4)).INTEGER), cast(ushort)((yystack.valueAt (2)).INTEGER)); }
       break;
 
-    case 20: /* Stmt: RETURN EOL  */
+    case 21: /* Stmt: DEF FN IDENT LPAREN IDENT RPAREN RELOP Expr EOL  */
 #line 62 "grammar.y"
+                                                          { if (((yystack.valueAt (2)).RELOP) != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); symtab.initializeId(((yystack.valueAt (4)).IDENT)); symtab.addFunction(((yystack.valueAt (6)).IDENT), SymbolTable.Function(((yystack.valueAt (4)).IDENT), ((yystack.valueAt (1)).Expr))); }
+      break;
+
+    case 22: /* Stmt: RETURN EOL  */
+#line 63 "grammar.y"
                      { (yyval.Stmt) = new Return(); next = next.link((yyval.Stmt)); }
       break;
 
-    case 21: /* Stmt: REM EOL  */
-#line 63 "grammar.y"
+    case 23: /* Stmt: REM EOL  */
+#line 64 "grammar.y"
                   { }
       break;
 
-    case 22: /* Stmt: END EOL  */
-#line 64 "grammar.y"
-                  { symtab.endOfProgram(); }
+    case 24: /* Stmt: END EOL  */
+#line 65 "grammar.y"
+                  { if (For.pop() != -1) symtab.error("FOR WITHOUT NEXT"); symtab.endOfProgram(); }
       break;
 
-    case 23: /* Lineno: LINENO  */
-#line 67 "grammar.y"
-                 { if (symtab.end) yyerror("STATEMENTS AFTER END"); (yyval.Lineno) = new Line(((yystack.valueAt (0)).LINENO)); }
+    case 25: /* Lineno: LINENO  */
+#line 68 "grammar.y"
+                 { if (symtab.end) symtab.error("STATEMENT AFTER END"); (yyval.Lineno) = new Line(((yystack.valueAt (0)).LINENO)); }
       break;
 
-    case 24: /* PrintSq: %empty  */
-#line 70 "grammar.y"
+    case 26: /* PrintSq: %empty  */
+#line 71 "grammar.y"
                  { (yyval.PrintSq) = new Node(); }
       break;
 
-    case 25: /* PrintSq: Print  */
-#line 71 "grammar.y"
+    case 27: /* PrintSq: Print  */
+#line 72 "grammar.y"
                 { (yyval.PrintSq) = ((yystack.valueAt (0)).Print); }
       break;
 
-    case 26: /* PrintSq: PrintSq Tab  */
-#line 72 "grammar.y"
+    case 28: /* PrintSq: PrintSq Tab  */
+#line 73 "grammar.y"
                       { (yyval.PrintSq).linkLast(((yystack.valueAt (0)).Tab)); }
       break;
 
-    case 27: /* PrintSq: PrintSq Tab Print  */
-#line 73 "grammar.y"
+    case 29: /* PrintSq: PrintSq Tab Print  */
+#line 74 "grammar.y"
                             { (yyval.PrintSq).linkLast(((yystack.valueAt (1)).Tab)); (yyval.PrintSq).linkLast(((yystack.valueAt (0)).Print)); }
       break;
 
-    case 28: /* Print: STRING  */
-#line 76 "grammar.y"
+    case 30: /* Print: STRING  */
+#line 77 "grammar.y"
                  { (yyval.Print) = new String(((yystack.valueAt (0)).STRING)); }
       break;
 
-    case 29: /* Print: Expr  */
-#line 77 "grammar.y"
+    case 31: /* Print: Expr  */
+#line 78 "grammar.y"
                { (yyval.Print) = new PrintExpr(((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 30: /* Print: STRING Expr  */
-#line 78 "grammar.y"
+    case 32: /* Print: STRING Expr  */
+#line 79 "grammar.y"
                       { (yyval.Print) = new String(((yystack.valueAt (1)).STRING)); (yyval.Print).linkLast(new PrintExpr(((yystack.valueAt (0)).Expr))); }
       break;
 
-    case 31: /* Tab: COMMA  */
-#line 81 "grammar.y"
+    case 33: /* Tab: COMMA  */
+#line 82 "grammar.y"
                 { (yyval.Tab) = new Comma(); }
       break;
 
-    case 32: /* Tab: SEMICOLON  */
-#line 82 "grammar.y"
+    case 34: /* Tab: SEMICOLON  */
+#line 83 "grammar.y"
                     { (yyval.Tab) = new SemiColon(); }
       break;
 
-    case 33: /* DataSq: Data  */
-#line 85 "grammar.y"
+    case 35: /* DataSq: Data  */
+#line 86 "grammar.y"
                {}
       break;
 
-    case 34: /* DataSq: DataSq COMMA Data  */
-#line 86 "grammar.y"
+    case 36: /* DataSq: DataSq COMMA Data  */
+#line 87 "grammar.y"
                             {}
       break;
 
-    case 35: /* Data: INTEGER  */
-#line 89 "grammar.y"
+    case 37: /* Data: INTEGER  */
+#line 90 "grammar.y"
                   { symtab.installData(((yystack.valueAt (0)).INTEGER)); }
       break;
 
-    case 36: /* Data: NUMBER  */
-#line 90 "grammar.y"
+    case 38: /* Data: NUMBER  */
+#line 91 "grammar.y"
                  { symtab.installData(((yystack.valueAt (0)).NUMBER)); }
       break;
 
-    case 37: /* Data: MINUS INTEGER  */
-#line 91 "grammar.y"
+    case 39: /* Data: MINUS INTEGER  */
+#line 92 "grammar.y"
                         { symtab.installData(-((yystack.valueAt (0)).INTEGER)); }
       break;
 
-    case 38: /* Data: MINUS NUMBER  */
-#line 92 "grammar.y"
+    case 40: /* Data: MINUS NUMBER  */
+#line 93 "grammar.y"
                        { symtab.installData(-((yystack.valueAt (0)).NUMBER)); }
       break;
 
-    case 39: /* ReadSq: IDENT  */
+    case 41: /* ReadSq: Read  */
 #line 96 "grammar.y"
-                { (yyval.ReadSq) = new Read(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.ReadSq)); }
+               {}
       break;
 
-    case 40: /* ReadSq: ReadSq COMMA IDENT  */
+    case 42: /* ReadSq: ReadSq COMMA Read  */
 #line 97 "grammar.y"
-                             { (yyval.ReadSq) = new Read(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.ReadSq)); }
+                            {}
       break;
 
-    case 41: /* InputSq: IDENT  */
+    case 43: /* Read: IDENT  */
 #line 100 "grammar.y"
-                { (yyval.InputSq) = new Input(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.InputSq)); }
+                { (yyval.Read) = new Read(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.Read)); }
       break;
 
-    case 42: /* InputSq: InputSq COMMA IDENT  */
+    case 44: /* Read: IDENT LPAREN Expr RPAREN  */
 #line 101 "grammar.y"
-                              { (yyval.InputSq) = new Input(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.InputSq)); }
+                                   { (yyval.Read) = new ReadDim(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Read)); }
       break;
 
-    case 43: /* Expr: NUMBER  */
-#line 104 "grammar.y"
+    case 45: /* Read: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 102 "grammar.y"
+                                              { (yyval.Read) = new ReadDim2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Read)); }
+      break;
+
+    case 48: /* Input: IDENT  */
+#line 109 "grammar.y"
+                { (yyval.Input) = new Input(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.Input)); }
+      break;
+
+    case 49: /* Input: IDENT LPAREN Expr RPAREN  */
+#line 110 "grammar.y"
+                                   { (yyval.Input) = new InputDim(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Input)); }
+      break;
+
+    case 50: /* Input: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 111 "grammar.y"
+                                              { (yyval.Input) = new InputDim2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Input)); }
+      break;
+
+    case 51: /* Expr: NUMBER  */
+#line 114 "grammar.y"
                  { (yyval.Expr) = new Constant(symtab.installConstant(((yystack.valueAt (0)).NUMBER))); }
       break;
 
-    case 44: /* Expr: INTEGER  */
-#line 105 "grammar.y"
+    case 52: /* Expr: INTEGER  */
+#line 115 "grammar.y"
                   { (yyval.Expr) = new Constant(symtab.installConstant(((yystack.valueAt (0)).INTEGER))); }
       break;
 
-    case 45: /* Expr: IDENT  */
-#line 106 "grammar.y"
+    case 53: /* Expr: IDENT  */
+#line 116 "grammar.y"
                 { (yyval.Expr) = new Identifier(((yystack.valueAt (0)).IDENT)); }
       break;
 
-    case 46: /* Expr: MATHFN Expr RPAREN  */
-#line 107 "grammar.y"
+    case 54: /* Expr: MATHFN Expr RPAREN  */
+#line 117 "grammar.y"
                              { (yyval.Expr) = new MathFn(((yystack.valueAt (2)).MATHFN), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 47: /* Expr: FN IDENT LPAREN Expr RPAREN  */
-#line 108 "grammar.y"
-                                      { (yyval.Expr) = new FunctionCall(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); }
+    case 55: /* Expr: FN IDENT LPAREN Expr RPAREN  */
+#line 118 "grammar.y"
+                                      { (yyval.Expr) = new FnCall(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 48: /* Expr: IDENT LPAREN Expr RPAREN  */
-#line 109 "grammar.y"
-                                   { (yyval.Expr) = new Array(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); }
+    case 56: /* Expr: IDENT LPAREN Expr RPAREN  */
+#line 119 "grammar.y"
+                                   { (yyval.Expr) = new Dim(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 49: /* Expr: Expr PLUS Expr  */
-#line 110 "grammar.y"
+    case 57: /* Expr: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 120 "grammar.y"
+                                              { (yyval.Expr) = new Dim2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); }
+      break;
+
+    case 58: /* Expr: Expr PLUS Expr  */
+#line 121 "grammar.y"
                          { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Add, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 50: /* Expr: Expr MINUS Expr  */
-#line 111 "grammar.y"
+    case 59: /* Expr: Expr MINUS Expr  */
+#line 122 "grammar.y"
                           { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Sub, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 51: /* Expr: Expr TIMES Expr  */
-#line 112 "grammar.y"
+    case 60: /* Expr: Expr TIMES Expr  */
+#line 123 "grammar.y"
                           { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Mul, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 52: /* Expr: Expr DIVIDE Expr  */
-#line 113 "grammar.y"
+    case 61: /* Expr: Expr DIVIDE Expr  */
+#line 124 "grammar.y"
                            { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Div, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 53: /* Expr: Expr EXP Expr  */
-#line 114 "grammar.y"
+    case 62: /* Expr: Expr EXP Expr  */
+#line 125 "grammar.y"
                         { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Exp, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 54: /* Expr: MINUS Expr  */
-#line 115 "grammar.y"
+    case 63: /* Expr: MINUS Expr  */
+#line 126 "grammar.y"
                                   { (yyval.Expr) = new Operation(((yystack.valueAt (0)).Expr), Op.Neg); }
       break;
 
-    case 55: /* Expr: LPAREN Expr RPAREN  */
-#line 116 "grammar.y"
+    case 64: /* Expr: LPAREN Expr RPAREN  */
+#line 127 "grammar.y"
                              { (yyval.Expr) = ((yystack.valueAt (1)).Expr); }
       break;
 
 
-#line 692 "Parser.d"
+#line 730 "Parser.d"
 
       default: break;
     }
@@ -1070,7 +1108,7 @@ this.symtab = symtab;
 
   /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
-  private static immutable short yypact_ninf_ = -38;
+  private static immutable short yypact_ninf_ = -44;
 
   /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
      positive, shift that token.  If negative, reduce the rule which
@@ -1081,19 +1119,22 @@ this.symtab = symtab;
      STATE-NUM.  */
 private static immutable short[] yypact_ =
 [
-     -38,    74,   -38,   -38,    11,    16,     5,     1,    29,    25,
-      39,    48,    -3,    18,    33,    62,    31,    75,    40,    76,
-     -38,   -38,    -4,   -38,   -37,   -38,   -38,     6,    34,   -38,
-      46,    25,   -38,   -38,    25,    98,    25,    25,     9,   -38,
-      60,    70,    -6,    96,    72,   -38,   -38,   111,    84,   -38,
-      80,   -38,   -38,    37,    25,    25,   144,   -38,   -38,   -38,
-       5,   -38,    25,    60,   -29,   120,    87,    67,   -38,   -38,
-     -38,     1,    25,    25,    25,    25,    25,   -38,    25,    25,
-     -38,   128,   -38,   151,   161,   -38,   113,    93,   -38,   -38,
-      99,   -38,    25,   -38,   -38,   -24,   -24,    67,    67,    67,
-      10,    73,   168,   136,   -38,   -38,   173,   -38,   105,   175,
-      25,   149,   147,    25,   -38,   148,    81,   183,   -38,   121,
-     -38,    25,   -38,    25,   -38,   129,   137,   -38,   -38
+     -44,   131,   -44,   -44,    -1,     5,     0,     7,     4,    16,
+      17,    23,   -11,    -3,    22,    48,    24,    53,    30,    60,
+     -44,   -44,    -5,    50,    43,   -44,   -44,   -44,    95,    46,
+     -44,    59,    16,   -44,   -44,    16,    92,    16,    16,   -22,
+     -44,    79,    68,    -6,   107,    81,   -44,   -44,   124,    89,
+     -44,    96,   -44,   100,    66,   -44,    16,    16,    16,     5,
+     -44,   -44,   -44,     0,   -44,    16,    79,    13,   101,   138,
+      88,   -44,   -44,   -44,     7,    16,    16,    16,    16,    16,
+     -44,    16,    16,   -44,   104,   -44,   152,    16,    60,   -44,
+     176,    44,    73,   -44,   -44,   120,   -44,    16,   -44,   -44,
+     -43,   -43,    88,    88,    88,    29,   -13,   157,    76,   132,
+     -44,   -44,   153,    16,   -44,    16,   -44,    16,   144,   158,
+      16,   125,   122,   166,   -44,    16,    16,   150,   156,   162,
+     -44,   133,    52,   169,   -44,   136,   168,   184,   204,   -44,
+     -44,   -44,    16,   -44,    16,   178,   -44,   -44,    16,   192,
+     200,   -44,   208,   -44,   -44,   -44
 ];
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1101,33 +1142,36 @@ private static immutable short[] yypact_ =
      means the default is an error.  */
 private static immutable byte[] yydefact_ =
 [
-       2,     0,     1,    23,     0,     0,     0,    24,     0,     0,
+       2,     0,     1,    25,     0,     0,     0,    26,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       3,     4,     0,    39,     0,    35,    36,     0,     0,    33,
-      45,    28,    44,    43,     0,     0,     0,     0,     0,    25,
-      29,     0,     0,     0,     0,    22,     5,     0,     0,    20,
-       0,    21,    41,     0,     0,     0,     0,    16,    37,    38,
-       0,    15,     0,    30,     0,     0,     0,    54,    31,    32,
-       6,    26,     0,     0,     0,     0,     0,     7,     0,     0,
-      14,     0,     8,     0,     0,    17,     0,     0,    40,    34,
-       0,    46,     0,    55,    27,    49,    50,    51,    52,    53,
-       0,     0,     0,     0,    42,     9,     0,    48,     0,     0,
-       0,     0,     0,     0,    47,     0,     0,     0,    18,     0,
-      11,     0,    13,     0,    10,     0,     0,    12,    19
+       3,     4,     0,    43,     0,    41,    37,    38,     0,     0,
+      35,    53,    30,    52,    51,     0,     0,     0,     0,     0,
+      27,    31,     0,     0,     0,     0,    24,     5,     0,     0,
+      22,     0,    23,    48,     0,    46,     0,     0,     0,     0,
+      17,    39,    40,     0,    16,     0,    32,     0,     0,     0,
+      63,    33,    34,     6,    28,     0,     0,     0,     0,     0,
+       7,     0,     0,    15,     0,     8,     0,     0,     0,    18,
+       0,     0,     0,    42,    36,     0,    54,     0,    64,    29,
+      58,    59,    60,    61,    62,     0,     0,     0,     0,     0,
+      47,     9,     0,     0,    44,     0,    56,     0,     0,     0,
+       0,     0,     0,     0,    49,     0,     0,     0,     0,     0,
+      55,     0,     0,     0,    19,     0,     0,     0,     0,    45,
+      57,    12,     0,    14,     0,     0,    50,    10,     0,     0,
+       0,    20,     0,    13,    21,    11
 ];
 
   /* YYPGOTO[NTERM-NUM].  */
 private static immutable short[] yypgoto_ =
 [
-     -38,   -38,   -38,   -38,   -38,   122,   -38,   -38,   131,   -38,
-     -38,    -9
+     -44,   -44,   -44,   -44,   -44,   146,   -44,   -44,   164,   -44,
+     177,   -44,   140,    -9
 ];
 
   /* YYDEFGOTO[NTERM-NUM].  */
 private static immutable byte[] yydefgoto_ =
 [
-       0,     1,    20,    21,    38,    39,    71,    28,    29,    24,
-      53,    40
+       0,     1,    20,    21,    39,    40,    74,    29,    30,    24,
+      25,    54,    55,    41
 ];
 
   /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1135,50 +1179,62 @@ private static immutable byte[] yydefgoto_ =
      number is the opposite.  If YYTABLE_NINF, syntax error.  */
 private static immutable short[] yytable_ =
 [
-      42,    78,    56,    54,    57,    30,    31,    32,    91,    33,
-      34,    25,    58,    26,    59,    22,    72,    73,    74,    75,
-      23,    76,    63,    74,    75,    64,    76,    66,    67,    30,
-      35,    32,    55,    33,    34,    41,   109,    36,    45,    72,
-      73,    74,    75,    43,    76,    86,    87,    37,    68,    69,
-      70,    27,    44,    90,    35,    72,    73,    74,    75,    46,
-      76,    36,    47,    95,    96,    97,    98,    99,    48,   100,
-     101,    37,    49,    60,     2,    61,    84,     3,    85,    50,
-      52,    51,    62,   108,     4,     5,     6,     7,     8,     9,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-     110,   116,    65,    79,   119,    72,    73,    74,    75,   121,
-      76,    77,   125,    80,   126,    81,    83,    76,    72,    73,
-      74,    75,   122,    76,    93,    82,    72,    73,    74,    75,
-     106,    76,    72,    73,    74,    75,   107,    76,    72,    73,
-      74,    75,   114,    76,    72,    73,    74,    75,    88,    76,
-      72,    73,    74,    75,   105,    76,    92,   103,    72,    73,
-      74,    75,   124,    76,   102,   104,    72,    73,    74,    75,
-     127,    76,   111,   112,    72,    73,    74,    75,   128,    76,
-     113,   115,    72,    73,    74,    75,   117,    76,   118,   120,
-     123,    89,     0,    94
+      43,    81,    56,    22,    77,    78,    26,    79,    27,    23,
+      42,    31,    32,    33,   120,    34,    35,    71,    72,    73,
+      31,    44,    33,    66,    34,    35,    67,    45,    69,    70,
+      46,    57,    75,    76,    77,    78,    36,    79,    47,    75,
+      76,    77,    78,    37,    79,    36,    28,    90,    91,    92,
+      96,    48,    37,    38,    49,   119,    95,    51,    75,    76,
+      77,    78,    38,    79,    53,    50,   100,   101,   102,   103,
+     104,    52,   105,   106,    75,    76,    77,    78,   109,    79,
+     142,   112,    59,   113,    60,    63,    58,    64,   118,    75,
+      76,    77,    78,   143,    79,    65,    68,    75,    76,    77,
+      78,    61,    79,    62,   127,    88,   128,    89,   129,    80,
+     114,   132,   115,   122,    82,   123,   136,   137,    75,    76,
+      77,    78,    83,    79,    75,    76,    77,    78,    84,    79,
+      85,     2,    86,   149,     3,   150,    87,    97,    79,   152,
+     107,     4,     5,     6,     7,     8,     9,    10,    11,    12,
+      13,    14,    15,    16,    17,    18,    19,   116,   108,   117,
+     126,   121,   133,   134,   131,    75,    76,    77,    78,   124,
+      79,   125,   135,   145,   141,    98,   144,    75,    76,    77,
+      78,   130,    79,    75,    76,    77,    78,   138,    79,    75,
+      76,    77,    78,   139,    79,    75,    76,    77,    78,   140,
+      79,    75,    76,    77,    78,   146,    79,    75,    76,    77,
+      78,   148,    79,    75,    76,    77,    78,   111,    79,   151,
+      99,    75,    76,    77,    78,   147,    79,    94,   110,    75,
+      76,    77,    78,   153,    79,     0,    93,    75,    76,    77,
+      78,   154,    79,     0,     0,    75,    76,    77,    78,   155,
+      79,     0,     0,    75,    76,    77,    78,     0,    79
 ];
 
-private static immutable byte[] yycheck_ =
+private static immutable short[] yycheck_ =
 [
-       9,     7,    39,     7,    41,     4,     5,     6,    37,     8,
-       9,     6,     6,     8,     8,     4,    45,    46,    47,    48,
-       4,    50,    31,    47,    48,    34,    50,    36,    37,     4,
-      29,     6,    36,     8,     9,     6,    26,    36,    41,    45,
-      46,    47,    48,     4,    50,    54,    55,    46,    39,    40,
-      41,    46,     4,    62,    29,    45,    46,    47,    48,    41,
-      50,    36,    29,    72,    73,    74,    75,    76,     6,    78,
-      79,    46,    41,    39,     0,    41,    39,     3,    41,     4,
-       4,    41,    36,    92,    10,    11,    12,    13,    14,    15,
-      16,    17,    18,    19,    20,    21,    22,    23,    24,    25,
-      27,   110,     4,     7,   113,    45,    46,    47,    48,    28,
-      50,    41,   121,    41,   123,     4,    36,    50,    45,    46,
-      47,    48,    41,    50,    37,    41,    45,    46,    47,    48,
-      37,    50,    45,    46,    47,    48,    37,    50,    45,    46,
-      47,    48,    37,    50,    45,    46,    47,    48,     4,    50,
-      45,    46,    47,    48,    41,    50,    36,     6,    45,    46,
-      47,    48,    41,    50,    36,     4,    45,    46,    47,    48,
-      41,    50,     4,    37,    45,    46,    47,    48,    41,    50,
-       7,     6,    45,    46,    47,    48,    37,    50,    41,    41,
-       7,    60,    -1,    71
+       9,     7,     7,     4,    47,    48,     6,    50,     8,     4,
+       6,     4,     5,     6,    27,     8,     9,    39,    40,    41,
+       4,     4,     6,    32,     8,     9,    35,     4,    37,    38,
+      41,    36,    45,    46,    47,    48,    29,    50,    41,    45,
+      46,    47,    48,    36,    50,    29,    46,    56,    57,    58,
+      37,    29,    36,    46,     6,    26,    65,     4,    45,    46,
+      47,    48,    46,    50,     4,    41,    75,    76,    77,    78,
+      79,    41,    81,    82,    45,    46,    47,    48,    87,    50,
+      28,    37,    39,    39,    41,    39,    36,    41,    97,    45,
+      46,    47,    48,    41,    50,    36,     4,    45,    46,    47,
+      48,     6,    50,     8,   113,    39,   115,    41,   117,    41,
+      37,   120,    39,    37,     7,    39,   125,   126,    45,    46,
+      47,    48,    41,    50,    45,    46,    47,    48,     4,    50,
+      41,     0,    36,   142,     3,   144,    36,    36,    50,   148,
+      36,    10,    11,    12,    13,    14,    15,    16,    17,    18,
+      19,    20,    21,    22,    23,    24,    25,    37,     6,    39,
+       7,     4,    37,    41,     6,    45,    46,    47,    48,    37,
+      50,    39,     6,    37,    41,    37,     7,    45,    46,    47,
+      48,    37,    50,    45,    46,    47,    48,    37,    50,    45,
+      46,    47,    48,    37,    50,    45,    46,    47,    48,    37,
+      50,    45,    46,    47,    48,    37,    50,    45,    46,    47,
+      48,     7,    50,    45,    46,    47,    48,    41,    50,    41,
+      74,    45,    46,    47,    48,    41,    50,    63,    88,    45,
+      46,    47,    48,    41,    50,    -1,    59,    45,    46,    47,
+      48,    41,    50,    -1,    -1,    45,    46,    47,    48,    41,
+      50,    -1,    -1,    45,    46,    47,    48,    -1,    50
 ];
 
   /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -1187,17 +1243,20 @@ private static immutable byte[] yystos_ =
 [
        0,    52,     0,     3,    10,    11,    12,    13,    14,    15,
       16,    17,    18,    19,    20,    21,    22,    23,    24,    25,
-      53,    54,     4,     4,    60,     6,     8,    46,    58,    59,
-       4,     5,     6,     8,     9,    29,    36,    46,    55,    56,
-      62,     6,    62,     4,     4,    41,    41,    29,     6,    41,
-       4,    41,     4,    61,     7,    36,    39,    41,     6,     8,
-      39,    41,    36,    62,    62,     4,    62,    62,    39,    40,
-      41,    57,    45,    46,    47,    48,    50,    41,     7,     7,
-      41,     4,    41,    36,    39,    41,    62,    62,     4,    59,
-      62,    37,    36,    37,    56,    62,    62,    62,    62,    62,
-      62,    62,    36,     6,     4,    41,    37,    37,    62,    26,
-      27,     4,    37,     7,    37,     6,    62,    37,    41,    62,
-      41,    28,    41,     7,    41,    62,    62,    41,    41
+      53,    54,     4,     4,    60,    61,     6,     8,    46,    58,
+      59,     4,     5,     6,     8,     9,    29,    36,    46,    55,
+      56,    64,     6,    64,     4,     4,    41,    41,    29,     6,
+      41,     4,    41,     4,    62,    63,     7,    36,    36,    39,
+      41,     6,     8,    39,    41,    36,    64,    64,     4,    64,
+      64,    39,    40,    41,    57,    45,    46,    47,    48,    50,
+      41,     7,     7,    41,     4,    41,    36,    36,    39,    41,
+      64,    64,    64,    61,    59,    64,    37,    36,    37,    56,
+      64,    64,    64,    64,    64,    64,    64,    36,     6,    64,
+      63,    41,    37,    39,    37,    39,    37,    39,    64,    26,
+      27,     4,    37,    39,    37,    39,     7,    64,    64,    64,
+      37,     6,    64,    37,    41,     6,    64,    64,    37,    37,
+      37,    41,    28,    41,     7,    37,    37,    41,     7,    64,
+      64,    41,    64,    41,    41,    41
 ];
 
   /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
@@ -1205,21 +1264,23 @@ private static immutable byte[] yyr1_ =
 [
        0,    51,    52,    52,    53,    53,    53,    53,    53,    53,
       53,    53,    53,    53,    53,    53,    53,    53,    53,    53,
-      53,    53,    53,    54,    55,    55,    55,    55,    56,    56,
-      56,    57,    57,    58,    58,    59,    59,    59,    59,    60,
-      60,    61,    61,    62,    62,    62,    62,    62,    62,    62,
-      62,    62,    62,    62,    62,    62
+      53,    53,    53,    53,    53,    54,    55,    55,    55,    55,
+      56,    56,    56,    57,    57,    58,    58,    59,    59,    59,
+      59,    60,    60,    61,    61,    61,    62,    62,    63,    63,
+      63,    64,    64,    64,    64,    64,    64,    64,    64,    64,
+      64,    64,    64,    64,    64
 ];
 
   /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 private static immutable byte[] yyr2_ =
 [
        0,     2,     0,     2,     1,     2,     3,     3,     3,     5,
-       8,     7,     9,     7,     3,     3,     3,     3,     6,     9,
-       2,     2,     2,     1,     0,     1,     2,     3,     1,     1,
-       2,     1,     1,     1,     3,     1,     1,     2,     2,     1,
-       3,     1,     3,     1,     1,     1,     3,     5,     4,     3,
-       3,     3,     3,     3,     2,     3
+       8,    10,     7,     9,     7,     3,     3,     3,     3,     6,
+       8,     9,     2,     2,     2,     1,     0,     1,     2,     3,
+       1,     1,     2,     1,     1,     1,     3,     1,     1,     2,
+       2,     1,     3,     1,     4,     6,     1,     3,     1,     4,
+       6,     1,     1,     1,     3,     5,     4,     6,     3,     3,
+       3,     3,     3,     2,     3
 ];
 
 
@@ -1230,8 +1291,8 @@ private static immutable byte[] yyr2_ =
     return SymbolKind(t);
   }
 
-  private static immutable int yylast_ = 193;
-  private static immutable int yynnts_ = 12;
+  private static immutable int yylast_ = 258;
+  private static immutable int yynnts_ = 14;
   private static immutable int yyfinal_ = 2;
   private static immutable int yyntokens_ = 51;
 
@@ -1279,13 +1340,12 @@ private static immutable byte[] yyr2_ =
 /* Unqualified %code blocks.  */
 #line 31 "grammar.y"
 
-    import Node;
-    import Expr;
-    import std.stdio;
-    import LexerImpl;
-    import SymbolTable;
-    import Printable;
+    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next;
+    import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall;
+    import LexerImpl : LexerImpl;
+    import SymbolTable : SymbolTable;
+    import Printable : Printable, NewLine, Comma, SemiColon, String, PrintExpr;
 
-#line 1290 "Parser.d"
+#line 1350 "Parser.d"
 
 }

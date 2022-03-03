@@ -2,6 +2,7 @@
 
 BASE = dbasic
 DMD = gdc
+DMDFLAGS = --release -O
 BISON = bison
 OBJS = Parser.o LexerImpl.o Driver.o Node.o Printable.o Expr.o SymbolTable.o
 AUTOGEN = Parser.d
@@ -9,13 +10,13 @@ AUTOGEN = Parser.d
 all: $(BASE)
 
 $(AUTOGEN): grammar.y
-	bison grammar.y
+	$(BISON) grammar.y
 
 %.o: %.d
-	$(DMD) -c $<
+	$(DMD) $(DMDFLAGS) -c $<
 
 $(BASE): $(AUTOGEN) $(OBJS)
-	$(DMD) -o $(BASE) $(OBJS)
+	$(DMD) $(DMDFLAGS) -o $(BASE) $(OBJS)
 
 run: all
 	./$(BASE)

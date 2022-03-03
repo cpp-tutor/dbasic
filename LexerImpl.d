@@ -1,13 +1,12 @@
-import std.stdio;
-import std.regex;
-import std.container.array;
+import std.stdio :  writeln, readln, stdin, stderr;
+import std.regex : matchFirst;
 import std.typecons : Tuple, tuple;
 import std.range.primitives : front;
 import std.string : strip, startsWith;
 import std.conv : parse, to;
 import std.uni : isNumber;
-import Parser;
-import SymbolTable;
+import Parser : Lexer, Parser, TokenKind, Symbol;
+import SymbolTable : SymbolTable;
 
 public enum Edition {
     First = 1, Second, Third, Fourth, Fifth, Sixth,
@@ -38,7 +37,7 @@ class LexerImpl : Lexer {
     ];
     private static immutable Matches = [
         tuple( TokenKind.WS,          ` +`                                              ),
-        tuple( TokenKind.MATHFN,      `(SQR|SIN|COS|TAN|ASN|ACS|ATN|INT|LOG|EXP|RND)\(` ),
+        tuple( TokenKind.MATHFN,      `(SQR|SIN|COS|TAN|ASN|ACS|ATN|INT|LOG|EXP|RND|ABS)\(` ),
         tuple( TokenKind.IDENT,       `[A-Z][A-Z0-9]*`                                  ),
         tuple( TokenKind.NUMBER,      `[0-9]*\.[0-9]*(E(-)?[0-9]+)?`                    ),
         tuple( TokenKind.INTEGER,     `0|[1-9][0-9]*`                                   ),
@@ -98,7 +97,9 @@ class LexerImpl : Lexer {
                     case TokenKind.IDENT:
                         foreach (keyword; Keywords) {
                             if (match.hit.startsWith(keyword[0])) {
-                            // todo: check edition
+                                if (keyword[2] > basic_edition) {
+                                    symtab.error("INVALID KEYWORD FOR THIS EDITION");
+                                }
                                 if (keyword[0] == "REM") {
                                     line_input = "\n";
                                 }
@@ -109,7 +110,7 @@ class LexerImpl : Lexer {
                             }
                         }
                         line_input = line_input[match.hit.length .. $];
-                        return Symbol(TokenKind.IDENT, symtab.installID(match.hit));
+                        return Symbol(TokenKind.IDENT, symtab.installId(match.hit));
                     case TokenKind.NUMBER:
                         line_input = line_input[match.hit.length .. $];
                         return Symbol(TokenKind.NUMBER, to!double(match.hit));
@@ -149,11 +150,11 @@ class LexerImpl : Lexer {
     public void yyerror(string msg) {
         symtab.error(msg);
     }
-    public void reportSyntaxError(Parser.Parser.Context ctx)
+    public void reportSyntaxError(Parser.Context ctx)
     { // $ 10.2.6 bison manual
         symtab.error("SYNTAX ERROR");
         immutable int TOKENMAX = 25;
-        auto arg = new Parser.Parser.SymbolKind[TOKENMAX];
+        auto arg = new Parser.SymbolKind[TOKENMAX];
         int n = ctx.getExpectedTokens(arg, TOKENMAX);
         if (n < TOKENMAX) {
             for (int i = 0; i < n; ++i) {

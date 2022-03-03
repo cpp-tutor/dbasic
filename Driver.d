@@ -1,31 +1,44 @@
-import std.stdio;
-import std.conv;
-import LexerImpl;
-import Parser;
-import SymbolTable;
-import Node;
+import std.stdio : writeln, stderr;
+import std.conv : to;
+import std.exception : collectExceptionMsg;
+import LexerImpl : LexerImpl, Edition;
+import Parser : Parser;
+import SymbolTable : SymbolTable;
+import Node : Node;
 
-int main() {
-    auto symtab = new SymbolTable();
-    auto lexer = new LexerImpl(symtab);
-    stderr.writeln("Edition: BASIC The ", to!string(lexer.edition));
-    auto head = new Node(symtab);
-    auto parser = new Parser(lexer, symtab, head);
-    try {
-        parser.parse();
-        if (!symtab.end) {
-            symtab.error("MISSING END");
+int main(const string[] args) {
+    uint edition = 3;
+    if (args.length == 2) {
+        edition = to!uint(args[1]);
+        if ((edition < 1) || (edition > 6)) {
+            stderr.writeln("Bad edition (must be 1-6)");
+            return 1;
         }
     }
-    catch (Exception e) {
-        stderr.writeln(e);
-        return 1;
+    auto symtab = new SymbolTable();
+    auto lexer = new LexerImpl(symtab, cast(Edition)edition);
+    stderr.writeln("Edition: BASIC The ", to!string(lexer.edition), lexer.edition > 1 ? " (partial)" : "");
+    auto head = new Node(symtab);
+    auto parser = new Parser(lexer, symtab, head);
+    auto msg = collectExceptionMsg(parser.parse());
+    if (msg) {
+        symtab.error(msg);
+    }
+    if (!symtab.end) {
+        symtab.error("MISSING END");
     }
     if (symtab.errors == 0) {
-        head.prelude();
-        head.codegen();
-        head.interlude();
-        symtab.codegen();
+        auto generate = {
+            head.prelude();
+            head.codegen();
+            head.interlude();
+            symtab.codegen();
+        };
+        msg = collectExceptionMsg(generate());
+        if (msg) {
+            symtab.error(msg);
+            return 1;
+        }
         return 0;
     }
     return 1;

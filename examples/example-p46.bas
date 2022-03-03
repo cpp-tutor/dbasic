@@ -1,0 +1,8 @@
+5 LET S = 0
+10 LET X = 0
+20 LET S = S + X
+30 IF X >= 2 THEN 60
+40 LET X = X + .1
+50 GOTO 20
+60 PRINT S
+70 END

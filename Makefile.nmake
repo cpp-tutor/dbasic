@@ -1,0 +1,28 @@
+# nmake makefile for dbasic project
+# note: run from within Visual Studio 2022 command prompt
+# "nnake /f Makefile.nmake"
+
+# note: place win_bison.exe in the same directory as this makefile or specify path
+Bison = win_bison.exe
+DMD = dmd.exe
+DMDFlags = -release -O
+
+Target = dbasic.exe
+Objs = Parser.obj LexerImpl.obj Driver.obj Node.obj Printable.obj Expr.obj SymbolTable.obj
+Autogen = Parser.d
+
+.SUFFIXES: .d .obj
+
+all: $(Target)
+
+$(Autogen): grammar.y
+  $(Bison) grammar.y
+
+.d.obj:
+  $(DMD) $(DMDFlags) -c $*.d
+
+$(Target): $(Autogen) $(Objs)
+  $(DMD) $(DMDFlags) -of=$(Target) $(Objs)
+
+clean:
+  del $(Target) $(Objs) $(Autogen)
