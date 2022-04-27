@@ -8,7 +8,7 @@ DMD = dmd.exe
 DMDFlags = -release -O
 
 Target = dbasic.exe
-Objs = Parser.obj LexerImpl.obj Driver.obj Node.obj Printable.obj Expr.obj SymbolTable.obj
+Objs = Parser.obj LexerImpl.obj SymbolTable.obj Node.obj Expr.obj Print.obj Mat.obj Driver.obj
 Autogen = Parser.d
 
 .SUFFIXES: .d .obj

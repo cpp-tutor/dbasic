@@ -4,7 +4,7 @@ BASE = dbasic
 DMD = gdc
 DMDFLAGS = --release -O
 BISON = bison
-OBJS = Parser.o LexerImpl.o Driver.o Node.o Printable.o Expr.o SymbolTable.o
+OBJS = Parser.o LexerImpl.o SymbolTable.o Node.o Expr.o Print.o Mat.o Driver.o
 AUTOGEN = Parser.d
 
 all: $(BASE)

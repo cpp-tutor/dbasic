@@ -82,6 +82,7 @@ class Identifier : Expr {
     private int ident;
     this(int i) {
         ident = i;
+        symtab.initializeId(ident);
     }
     override void codegen() {
         setResult(allocateReg());
@@ -116,32 +117,22 @@ class Dim : Expr {
 
 class Dim2 : Expr {
     private int ident;
-    private class Expr2 : Node { // note: horrible, horrible hack
-        this(Expr a, Expr b) {
-            left = a;
-            right = b;
-        }
-        @property ref Node leftFromExpr2() {
-            return left;
-        }
-        @property ref Node rightFromExpr2() {
-            return right;
-        }
-    }
+    private Expr row, col;
     this(int i, Expr idx1, Expr idx2) {
         ident = i;
-        left = new Expr2(idx1, idx2);
+        row = idx1;
+        col = idx2;
     }
     override void codegen() {
-        (cast(Expr2)left).leftFromExpr2.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)((cast(Expr2)left).leftFromExpr2)).result);
+        row.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", row.result);
         writeln("\tvmov\tr0, s0");
-        deallocateReg((cast(Expr)((cast(Expr2)left).leftFromExpr2)).result);
+        deallocateReg(row.result);
         writeln("\tpush\t{ r0 }");
-        ((cast(Expr2)left).rightFromExpr2).codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)((cast(Expr2)left).rightFromExpr2)).result);
+        col.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", col.result);
         writeln("\tvmov\tr2, s0");
-        setResult((cast(Expr)((cast(Expr2)left).rightFromExpr2)).result);
+        setResult(col.result);
         writeln("\tpop\t{ r1 }");
         writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
         writeln("\tldr\tr3, [r0, #4]"); // sz2
@@ -229,6 +220,9 @@ class MathFn : Expr {
             case "TAN":
                 writeln("\tbl\ttan(PLT)");
                 break;
+            case "COT":
+                writeln("\tbl\tcot(PLT)"); // user function
+                break;
             case "ASN":
                 writeln("\tbl\tasin(PLT)");
                 break;
@@ -239,10 +233,15 @@ class MathFn : Expr {
                 writeln("\tbl\tatan(PLT)");
                 break;
             case "INT":
-                writeln("\tvcmp.f64\td0, #0");
-                writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-                writeln("\tblgt\tfloor(PLT)");
-                writeln("\tbllt\tceil(PLT)");
+                if (symtab.edition < 3) {
+                    writeln("\tvcmp.f64\td0, #0");
+                    writeln("\tvmrs\tAPSR_nzcv, FPSCR");
+                    writeln("\tblgt\tfloor(PLT)");
+                    writeln("\tbllt\tceil(PLT)");
+                }
+                else {
+                    writeln("\tbl\tfloor(PLT)");
+                }
                 break;
             case "LOG":
                 writeln("\tbl\tlog(PLT)");
@@ -255,6 +254,9 @@ class MathFn : Expr {
                 break;
             case "ABS":
                 writeln("\tbl\tfabs(PLT)");
+                break;
+            case "SGN":
+                writeln("\tbl\tsgn(PLT)"); // user function
                 break;
             default:
                 throw new Exception("BAD MathFn");

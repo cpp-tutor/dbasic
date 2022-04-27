@@ -1,9 +1,9 @@
 import std.stdio : writeln, stderr;
 import std.conv : to;
 import std.exception : collectExceptionMsg;
-import LexerImpl : LexerImpl, Edition;
+import LexerImpl : LexerImpl;
 import Parser : Parser;
-import SymbolTable : SymbolTable;
+import SymbolTable : SymbolTable, Edition;
 import Node : Node;
 
 int main(const string[] args) {
@@ -15,9 +15,9 @@ int main(const string[] args) {
             return 1;
         }
     }
-    auto symtab = new SymbolTable();
-    auto lexer = new LexerImpl(symtab, cast(Edition)edition);
-    stderr.writeln("Edition: BASIC The ", to!string(lexer.edition), lexer.edition > 1 ? " (partial)" : "");
+    auto symtab = new SymbolTable(cast(Edition)edition);
+    auto lexer = new LexerImpl(symtab);
+    stderr.writeln("Edition: BASIC The ", to!string(symtab.edition), symtab.edition > 2 ? " (partial)" : "");
     auto head = new Node(symtab);
     auto parser = new Parser(lexer, symtab, head);
     auto msg = collectExceptionMsg(parser.parse());

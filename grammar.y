@@ -7,19 +7,19 @@
 %parse-param { SymbolTable symtab }
 %parse-param { Node next }
 
-%token <ushort> LINENO 
-%token <int> IDENT STRING INTEGER RELOP
+%token <ushort> LINENO
+%token <int> KEYWORD IDENT STRING INTEGER RELOP
 %token <double> NUMBER
 %token <string> MATHFN
-%nterm <Parser.Node> Stmt Lineno Print Tab PrintSq Input Read
+%nterm <Parser.Node> Stmt Lineno Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn Input
 %nterm <Parser.Expr> Expr
 
 // Keywords which are valid at the beginning of a line
-%token LET READ DATA PRINT GOTO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM INPUT
+%token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT INPUT
 // Other keywords
-%token THEN TO STEP FN
+%token THEN TO STEP FN ZER CON IDN TRN INV DET
 // Internal grammatical tokens
-%token EQ NE LT LE GE GT LPAREN RPAREN DOLLAR COMMA SEMICOLON
+%token ASSIGN EQ NE LT LE GE GT LPAREN RPAREN DOLLAR COMMA SEMICOLON
 // Other functionality
 %token EOL WS BLANKLINE BADLINE
 
@@ -33,7 +33,8 @@
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall;
     import LexerImpl : LexerImpl;
     import SymbolTable : SymbolTable;
-    import Printable : Printable, NewLine, Comma, SemiColon, String, PrintExpr;
+    import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr;
+    import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar;
 }
 
 %%
@@ -43,43 +44,68 @@ Stmts   : %empty
         ;
 
 Stmt    : Lineno { next = next.link($$); }
+        // BASIC the First
         | STOP EOL { $$ = new Stop(); next = next.link($$); }
-        | PRINT PrintSq EOL { $2.linkLast(new NewLine()); $$ = new Printable($2); next = next.link($$); }
-        | GOTO INTEGER EOL { symtab.registerFlow(cast(ushort)$2); $$ = new Goto(cast(ushort)$2); next = next.link($$); }
+        | PRINT Print EOL { $$ = new Print($2); next = next.link($$); }
+        | GO TO INTEGER EOL { symtab.registerFlow(cast(ushort)$3); $$ = new Goto(cast(ushort)$3); next = next.link($$); }
         | GOSUB INTEGER EOL { symtab.registerFlow(cast(ushort)$2); $$ = new GoSub(cast(ushort)$2); next = next.link($$); }
-        | LET IDENT RELOP Expr EOL { if ($3 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); $$ = new Let($2, $4); next = next.link($$); }
-        | LET IDENT LPAREN Expr RPAREN RELOP Expr EOL { if ($6 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); $$ = new LetDim($2, $4, $7); next = next.link($$); }
-        | LET IDENT LPAREN Expr COMMA Expr RPAREN RELOP Expr EOL { if ($8 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); $$ = new LetDim2($2, $4, $6, $9); next = next.link($$); }
+        | LET IDENT ASSIGN Expr EOL { $$ = new Let($2, $4); next = next.link($$); }
+        | LET IDENT LPAREN Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim($2, $4, $7); next = next.link($$); }
+        | LET IDENT LPAREN Expr COMMA Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim2($2, $4, $6, $9); next = next.link($$); }
         | IF Expr RELOP Expr THEN INTEGER EOL { $$ = new If($2, $3, $4, cast(ushort)$6); next = next.link($$); }
-        | FOR IDENT RELOP Expr TO Expr STEP Expr EOL { if ($3 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); $$ = new For($2, $4, $6, $8); next = next.link($$); }
-        | FOR IDENT RELOP Expr TO Expr EOL { if ($3 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); $$ = new For($2, $4, $6, new Constant(symtab.installConstant(1.0))); next = next.link($$); }
+        | IF Expr ASSIGN Expr THEN INTEGER EOL { $$ = new If($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
+        | FOR IDENT ASSIGN Expr TO Expr STEP Expr EOL { $$ = new For($2, $4, $6, $8); next = next.link($$); }
+        | FOR IDENT ASSIGN Expr TO Expr EOL { $$ = new For($2, $4, $6, new Constant(symtab.installConstant(1.0))); next = next.link($$); }
         | NEXT IDENT EOL { $$ = new Next($2); next = next.link($$); }
         | DATA DataSq EOL {}
         | READ ReadSq EOL {}
-        | INPUT InputSq EOL {}
-        | DIM IDENT LPAREN INTEGER RPAREN EOL { symtab.initializeDim($2, true, cast(ushort)$4); }
-        | DIM IDENT LPAREN INTEGER COMMA INTEGER RPAREN EOL { symtab.initializeDim2($2, true, cast(ushort)$4, cast(ushort)$6); }
-        | DEF FN IDENT LPAREN IDENT RPAREN RELOP Expr EOL { if ($7 != TokenKind.EQ) symtab.error("ILLEGAL RELATION"); symtab.initializeId($5); symtab.addFunction($3, SymbolTable.Function($5, $8)); }
+        | DIM DimSq EOL {}
+        | DEF FN IDENT LPAREN IDENT RPAREN ASSIGN Expr EOL { symtab.initializeId($5); symtab.addFunction($3, SymbolTable.Function($5, $8)); }
         | RETURN EOL { $$ = new Return(); next = next.link($$); }
         | REM EOL { }
         | END EOL { if (For.pop() != -1) symtab.error("FOR WITHOUT NEXT"); symtab.endOfProgram(); }
+        // BASIC the Second (CardBasic)
+        | MAT READ IDENT LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($3, true); $$ = new MatRead($3, $5, $7); next = next.link($$); }
+        | MAT READ IDENT LPAREN Expr RPAREN EOL { symtab.initializeMat($3, true); $$ = new MatRead($3, $5, new Constant(symtab.installConstant(1))); next = next.link($$); }
+        | MAT PRINT MatPr EOL { $$ = new MatPrint($3); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT PLUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatAdd($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT MINUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatSub($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatMul($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatZerCon($2, $6, $8); next = next.link($$); }
+        | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatIdn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); $$ = new MatTrn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); symtab.initializeId(symtab.installId("DET")); $$ = new MatInv($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($8); $$ = new MatScalar($2, $8, $5); next = next.link($$); }
+        // BASIC the Third
+        | INPUT InputSq EOL {}
         ;
 
 Lineno  : LINENO { if (symtab.end) symtab.error("STATEMENT AFTER END"); $$ = new Line($1); }
         ;
 
-PrintSq : %empty { $$ = new Node(); }
-        | Print { $$ = $1; }
-        | PrintSq Tab { $$.linkLast($2); }
-        | PrintSq Tab Print { $$.linkLast($2); $$.linkLast($3); }
+Print   : %empty { $$ = new NewLine(); }
+        | PrintEn { $$ = $1; }
+        | PrintSq PrintEn { $$ = $1; $$.linkLast($2); }
         ;
 
-Print   : STRING { $$ = new String($1); }
-        | Expr { $$ = new PrintExpr($1); }
-        | STRING Expr { $$ = new String($1); $$.linkLast(new PrintExpr($2)); }
+PrintSq : PrintSt { $$ = $1; }
+        | PrintSq PrintSt { $$.linkLast($2); }
         ;
 
-Tab     : COMMA { $$ = new Comma(); }
+PrintSt : STRING SEMICOLON { $$ = new String($1); }
+        | STRING COMMA { $$ = new String($1); $$.linkLast(new Comma()); }
+        | Expr PrintTa { $$ = new PrintExpr($1); $$.linkLast($2); }
+        | STRING Expr PrintTa { $$ = new String($1); $$.linkLast(new PrintExpr($2)); $$.linkLast($3); }
+        ;
+
+PrintEn : STRING { $$ = new String($1); $$.linkLast(new NewLine()); }
+        | Expr { $$ = new PrintExpr($1); $$.linkLast(new NewLine()); }
+        | STRING Expr { $$ = new String($1); $$.linkLast(new PrintExpr($2)); $$.linkLast(new NewLine()); }
+        | PrintSt { $$ = $1; }
+        ;
+
+PrintTa : COMMA { $$ = new Comma(); }
         | SEMICOLON { $$ = new SemiColon(); }
         ;
 
@@ -102,8 +128,32 @@ Read    : IDENT { $$ = new Read($1); next = next.link($$); }
         | IDENT LPAREN Expr COMMA Expr RPAREN { $$ = new ReadDim2($1, $3, $5); next = next.link($$); }
         ;
 
-InputSq : Input
-        | InputSq COMMA Input
+DimSq   : Dim {} // no type for $$
+        | DimSq COMMA Dim {}
+        ;
+
+Dim     : IDENT LPAREN INTEGER RPAREN { symtab.initializeDim($1, true, cast(ushort)$3); }
+        | IDENT LPAREN INTEGER COMMA INTEGER RPAREN { symtab.initializeDim2($1, true, cast(ushort)$3, cast(ushort)$5); }
+        ;
+
+MatPr   : MatPrEn { $$ = $1; }
+        | MatPrSq MatPrEn { $$ = $1; $$.linkLast($2); }
+        ;
+
+MatPrSq : MatPrSt { $$ = $1; }
+        | MatPrSq MatPrSt { $$.linkLast($2); }
+        ;
+
+MatPrSt : IDENT COMMA { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
+        | IDENT SEMICOLON { symtab.initializeMat($1); $$ = new MatFullPrint($1, true); }
+        ;
+
+MatPrEn : IDENT { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
+        | IDENT SEMICOLON { symtab.initializeMat($1); $$ = new MatFullPrint($1, true); }
+        ;
+
+InputSq : Input {}
+        | InputSq COMMA Input {}
         ;
 
 Input   : IDENT { $$ = new Input($1); next = next.link($$); }
@@ -125,4 +175,5 @@ Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         | Expr EXP Expr { $$ = new Operation($1, Op.Exp, $3); }
         | MINUS Expr %prec UMINUS { $$ = new Operation($2, Op.Neg); }
         | LPAREN Expr RPAREN { $$ = $2; }
+        | DET { $$ = new Identifier(symtab.installId("DET")); }
         ;

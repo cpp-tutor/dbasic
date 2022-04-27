@@ -3,6 +3,10 @@ import std.algorithm : countUntil;
 import std.typecons : Tuple, tuple;
 import Expr : Expr, Constant;
 
+public enum Edition {
+    First = 1, Second, Third, Fourth, Fifth, Sixth,
+}
+
 class SymbolTable {
     private enum Line { Unknown, Exists, Referenced, ExistsRef };
     private Line[ushort] lines;
@@ -17,6 +21,14 @@ class SymbolTable {
     private Tuple!(ushort,ushort)[int] dims2;
     public struct Function { int param_ident; Expr fn_expr; }
     private Function[int] functions;
+    private bool[int] mats;
+    private int basic_edition;
+    this(Edition edition) {
+        basic_edition = edition;
+    }
+    @property enum Edition edition() {
+        return cast(Edition)basic_edition;
+    }
     void error(string msg) {
         if (nerrs < max_errs) {
             stderr.writeln(msg, " AT LINE ", current_line);
@@ -87,6 +99,19 @@ class SymbolTable {
             error("DIM ALREADY USED");
         }
     }
+    void initializeMat(int id, bool explicit_mat = false) {
+        if (id !in dims2) {
+            error("DIM NOT DEFINED");
+        }
+        if (id !in mats) {
+            if (explicit_mat) {
+                mats[id] = true;
+            }
+            else {
+                error("MAT NOT INITIALIZED");
+            }
+        }
+    }
     int installString(string str) {
         auto pos = countUntil(string_list, str);
         if (pos != -1) {
@@ -123,7 +148,7 @@ class SymbolTable {
         if ((i < 0) || (i >= id_list.length)) {
             throw new Exception("BAD IDENT");
         }
-        if (!id_initialized[i] && !func) {
+        if (!id_initialized[i] && !func && i !in mats) {
             error("NO SUCH VARIABLE");
         }
         return id_list[i];
@@ -178,6 +203,15 @@ class SymbolTable {
             for (int i = 0; i < ((v[0] + 1) * (v[1] + 1)); ++i) {
                 writeln("\t.double\t0.0");
             }
+        }
+        if (mats.length) {
+            writeln("._mat_res:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("._mat_par1:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("._mat_par2:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("\t.balign 8");
+        }
+        foreach (k, _; mats) {
+            writeln("._mat", id_list[k], ":\n\t.word\t0\n\t.word\t0");
         }
         foreach (i, s; string_list) {
             writeln("._s", i, ":\n\t.asciz\t\"", s, "\"");
