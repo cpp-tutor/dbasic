@@ -76,7 +76,7 @@ void print_semicolon() {
     }
 }
 
-void runtime_error(int err, unsigned short line) {
+void runtime_error(int err, short line) {
     switch (err) {
         case 1:
             print_string("OUT OF DATA");
@@ -114,8 +114,8 @@ void runtime_error(int err, unsigned short line) {
 void mat_print(struct Mat *m, bool packed) {
     double *d = m->data + m->dim->cols + 1;
     print_newline();
-    for (int r = 0; r < m->mat->rows; ++r) {
-        for (int c = 0; c < m->mat->cols; ++c) {
+    for (unsigned r = 0; r != m->mat->rows; ++r) {
+        for (unsigned c = 0; c != m->mat->cols; ++c) {
             print_number(*(d + c + 1));
             if ((c + 1) < m->mat->cols) {
                 if (packed) {
@@ -144,13 +144,13 @@ void mat_print(struct Mat *m, bool packed) {
     }
 }
 
-void mat_read(struct Mat *m, struct Data *rd, unsigned short l) {
+void mat_read(struct Mat *m, struct Data *rd, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
     double *d = m->data + m->dim->cols + 1;
-    for (int r = 0; r < m->mat->rows; ++r) {
-        for (int c = 0; c < m->mat->cols; ++c) {
+    for (unsigned r = 0; r != m->mat->rows; ++r) {
+        for (unsigned c = 0; c != m->mat->cols; ++c) {
             if (rd->data_p == rd->data_m) {
                 runtime_error(1, l);
             }
@@ -160,7 +160,7 @@ void mat_read(struct Mat *m, struct Data *rd, unsigned short l) {
     }
 }
 
-void mat_add(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigned short l) {
+void mat_add(struct Mat *result, struct Mat *param1, struct Mat *param2, short l) {
     if (param1->mat->rows != param2->mat->rows || param1->mat->cols != param2->mat->cols) {
         runtime_error(7, l);
     }
@@ -172,8 +172,8 @@ void mat_add(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     double *result_d = result->data + result->dim->cols + 1,
       *param1_d = param1->data + param1->dim->cols + 1,
       *param2_d = param2->data + param2->dim->cols + 1;
-    for (int r = 0; r < result->mat->rows; ++r) {
-        for (int c = 0; c < result->mat->cols; ++c) {
+    for (unsigned r = 0; r != result->mat->rows; ++r) {
+        for (unsigned c = 0; c != result->mat->cols; ++c) {
             *(result_d + c + 1) = *(param1_d + c + 1) + *(param2_d + c + 1);
         }
         result_d += result->dim->cols + 1;
@@ -182,7 +182,7 @@ void mat_add(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     }
 }
 
-void mat_sub(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigned short l) {
+void mat_sub(struct Mat *result, struct Mat *param1, struct Mat *param2, short l) {
     if (param1->mat->rows != param2->mat->rows || param1->mat->cols != param2->mat->cols) {
         runtime_error(7, l);
     }
@@ -194,8 +194,8 @@ void mat_sub(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     double *result_d = result->data + result->dim->cols + 1,
         *param1_d = param1->data + param1->dim->cols + 1,
         *param2_d = param2->data + param2->dim->cols + 1;
-    for (int r = 0; r < result->mat->rows; ++r) {
-        for (int c = 0; c < result->mat->cols; ++c) {
+    for (unsigned r = 0; r != result->mat->rows; ++r) {
+        for (unsigned c = 0; c != result->mat->cols; ++c) {
             *(result_d + c + 1) = *(param1_d + c + 1) - *(param2_d + c + 1);
         }
         result_d += result->dim->cols + 1;
@@ -204,7 +204,7 @@ void mat_sub(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     }
 }
 
-void mat_mul(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigned short l) {
+void mat_mul(struct Mat *result, struct Mat *param1, struct Mat *param2, short l) {
     if (param1->mat->cols != param2->mat->rows) {
         runtime_error(7, l);
     }
@@ -214,10 +214,10 @@ void mat_mul(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     result->mat->rows = param1->mat->rows;
     result->mat->cols = param2->mat->cols;
     double *d = result->data + result->dim->cols + 1;
-    for (int r = 0; r < result->mat->rows; ++r) {
-        for (int c = 0; c < result->mat->cols; ++c) {
+    for (unsigned r = 0; r != result->mat->rows; ++r) {
+        for (unsigned c = 0; c != result->mat->cols; ++c) {
             *(d + c + 1) = 0.0;
-            for (int e = 0; e < param1->mat->cols; ++e) {
+            for (unsigned e = 0; e != param1->mat->cols; ++e) {
                 *(d + c + 1) +=
                     *(param1->data + ((param1->dim->cols + 1) * (r + 1)) + e + 1)
                     *
@@ -228,51 +228,51 @@ void mat_mul(struct Mat *result, struct Mat *param1, struct Mat *param2, unsigne
     }
 }
 
-void mat_zer_con(struct Mat *m, unsigned short l, bool con) {
+void mat_zer_con(struct Mat *m, short l, bool con) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
     double *d = m->data + m->dim->cols + 1;
-    for (int r = 0; r < m->mat->rows; ++r) {
-        for (int c = 0; c < m->mat->cols; ++c) {
+    for (unsigned r = 0; r != m->mat->rows; ++r) {
+        for (unsigned c = 0; c != m->mat->cols; ++c) {
             *(d + c + 1) = con ? 1.0 : 0.0;
         }
         d += m->dim->cols + 1;
     }
 }
 
-void mat_idn(struct Mat *m, unsigned short l) {
+void mat_idn(struct Mat *m, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
     double *d = m->data + m->dim->cols + 1;
-    for (int r = 0; r < m->mat->rows; ++r) {
-        for (int c = 0; c < m->mat->cols; ++c) {
+    for (unsigned r = 0; r != m->mat->rows; ++r) {
+        for (unsigned c = 0; c != m->mat->cols; ++c) {
             *(d + c + 1) = (r == c) ? 1.0 : 0.0;
         }
         d += m->dim->cols + 1;
     }
 }
 
-void mat_trn(struct Mat *result, struct Mat *source, unsigned short l) {
+void mat_trn(struct Mat *result, struct Mat *source, short l) {
     if (source->mat->rows > result->dim->cols || source->mat->cols > result->dim->rows) {
         runtime_error(6, l);
     }
     result->mat->rows = source->mat->cols;
     result->mat->cols = source->mat->rows;
     double *d = result->data + result->dim->cols + 1;
-    for (int r = 0; r < result->mat->rows; ++r) {
-        for (int c = 0; c < result->mat->cols; ++c) {
+    for (unsigned r = 0; r != result->mat->rows; ++r) {
+        for (unsigned c = 0; c != result->mat->cols; ++c) {
             *(d + c + 1) = *(source->data + ((source->dim->cols + 1) * (c + 1)) + r + 1);
         }
         d += result->dim->cols + 1;
     }
 }
 
-double *mat_minor(double *mat, int sz, int omit_row, int omit_col) {
+double *mat_minor(double *mat, unsigned sz, unsigned omit_row, unsigned omit_col) {
     double *minor = malloc((sz - 1) * (sz - 1) * sizeof(double)), *d = minor;
-    for (int r = 0; r < sz; ++r) {
-        for (int c = 0; c < sz; ++c) {
+    for (unsigned r = 0; r != sz; ++r) {
+        for (unsigned c = 0; c != sz; ++c) {
             if (r != omit_row && c != omit_col) {
                 *d++ = mat[r * sz + c];
             }
@@ -281,7 +281,7 @@ double *mat_minor(double *mat, int sz, int omit_row, int omit_col) {
     return minor;
 }
 
-double mat_det(double *mat, int sz) {
+double mat_det(double *mat, unsigned sz) {
     double result = 0.0;
     switch (sz) {
         case 0:
@@ -295,7 +295,7 @@ double mat_det(double *mat, int sz) {
             break;
         default:
             {
-                for (int c = 0; c < sz; ++c) {
+                for (unsigned c = 0; c != sz; ++c) {
                     result += ((c % 2) ? -1.0 : 1.0) * mat[c] * mat_det(mat_minor(mat, sz, 0, c), sz - 1);
                 }
                 break;
@@ -305,44 +305,48 @@ double mat_det(double *mat, int sz) {
     return result;
 }
 
-void mat_inv(struct Mat *result, struct Mat *source, double *det, unsigned short l) {
+void mat_inv(struct Mat *result, struct Mat *source, double *detp, short l) {
     if (source->mat->rows != source->mat->cols) {
         runtime_error(7, l);
     }
     if (source->mat->rows > result->dim->rows || source->mat->cols > result->dim->cols) {
         runtime_error(6, l);
     }
-    int sz = source->mat->cols;
+    unsigned sz = source->mat->cols;
     result->mat->rows = result->mat->cols = sz;
     double *mat = malloc(sz * sz * sizeof(double)), *d = source->data + source->dim->cols + 1;
-    for (int r = 0; r < sz; ++r) {
-        for (int c = 0; c < sz; ++c) {
+    for (unsigned r = 0; r != sz; ++r) {
+        for (unsigned c = 0; c != sz; ++c) {
             mat[r * sz + c] = *(d + c + 1);
         }
         d += source->dim->cols + 1;
     }
-    *det = 0.0;
-    for (int c = 0; c < sz; ++c) {
-        *det += ((c % 2) ? -1.0 : 1.0) * mat[c] * mat_det(mat_minor(mat, sz, 0, c), sz - 1);
+    double det = 0.0;
+    for (unsigned c = 0; c != sz; ++c) {
+        det += ((c % 2) ? -1.0 : 1.0) * mat[c] * mat_det(mat_minor(mat, sz, 0, c), sz - 1);
     }
     d = result->data + result->dim->cols + 1;
-    for (int r = 0; r < sz; ++r) {
-        for (int c = 0; c < sz; ++c) {
-            *(d + c + 1) = (((c + r) % 2) ? -1.0 : 1.0) * mat_det(mat_minor(mat, sz, c, r), sz - 1) / *det;
+    for (unsigned r = 0; r != sz; ++r) {
+        for (unsigned c = 0; c != sz; ++c) {
+            *(d + c + 1) = (det == 0.0) ? 0.0 : (((c + r) % 2) ? -1.0 : 1.0) * mat_det(mat_minor(mat, sz, c, r), sz - 1) / det;
         }
         d += result->dim->cols + 1;
     }
+    if (detp) {
+        *detp = det;
+    }
+    free(mat);
 }
 
-void mat_scalar(struct Mat *result, struct Mat *source, double scalar, unsigned short l) {
+void mat_scalar(struct Mat *result, struct Mat *source, double scalar, short l) {
     if (source->mat->rows > result->dim->rows || source->mat->cols > result->dim->cols) {
         runtime_error(6, l);
     }
     result->mat->rows = source->mat->rows;
     result->mat->cols = source->mat->cols;
     double *d = result->data + result->dim->cols + 1;
-    for (int r = 0; r < result->mat->rows; ++r) {
-        for (int c = 0; c < result->mat->cols; ++c) {
+    for (unsigned r = 0; r != result->mat->rows; ++r) {
+        for (unsigned c = 0; c != result->mat->cols; ++c) {
             *(d + c + 1) = *(source->data + ((source->dim->cols + 1) * (r + 1)) + c + 1) * scalar;
         }
         d += result->dim->cols + 1;
@@ -353,6 +357,7 @@ void read_number(double *n) {
     char buffer[TmpBufSz];
     print_string("? ");
     char *p = fgets(buffer, TmpBufSz, stdin);
+    p = p; // -Werror=unused-variable
     sscanf(buffer, "%lf", n);
     pos = 0;
     ++vpos;
