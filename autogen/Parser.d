@@ -1,4 +1,4 @@
-/* A Bison parser, made by GNU Bison 3.8.2.12-013d-dirty.  */
+/* A Bison parser, made by GNU Bison 3.8.2.  */
 
 /* Skeleton implementation for Bison LALR(1) parsers in D
 
@@ -205,7 +205,7 @@ public enum TokenKind {
 class Parser
 {
   /** Version number for the Bison executable that generated this parser.  */
-  public static immutable string yy_bison_version = "3.8.2.12-013d-dirty";
+  public static immutable string yy_bison_version = "3.8.2";
 
   /** Name of the skeleton that generated this parser.  */
   public static immutable string yy_bison_skeleton = "lalr1.d";
@@ -617,7 +617,7 @@ this.symtab = symtab;
 
     case 34: /* Stmt: MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL  */
 #line 78 "grammar.y"
-                                                       { symtab.initializeMat(((yystack.valueAt (6)).IDENT), true); symtab.initializeMat(((yystack.valueAt (2)).IDENT)); symtab.initializeId(symtab.installId("DET")); (yyval.Stmt) = new MatInv(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                       { symtab.initializeMat(((yystack.valueAt (6)).IDENT), true); symtab.initializeMat(((yystack.valueAt (2)).IDENT)); if (symtab.edition >= Edition.Fourth) symtab.initializeId(symtab.installId("DET")); (yyval.Stmt) = new MatInv(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 35: /* Stmt: MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL  */
@@ -1606,7 +1606,7 @@ private static immutable byte[] yyr2_ =
     import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next;
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall;
     import LexerImpl : LexerImpl;
-    import SymbolTable : SymbolTable;
+    import SymbolTable : SymbolTable, Edition;
     import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr;
     import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar;
 

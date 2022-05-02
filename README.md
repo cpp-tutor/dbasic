@@ -85,9 +85,11 @@ Wikipedia: https://en.wikipedia.org/wiki/Dartmouth_BASIC
 
 The intention is to recreate the original programming enviroment that existed in the late 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
 
-Ultimately I'd like to support all of the Dartmouth BASICs (First thru Sixth); there is a runtime switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords from Basic The First (1964) is available **now including one- and two-dimensional arrays** ~~apart from `DEF` and `FN`~~, and also with `INPUT` from Basic The Third to enable the Football Championship program `ftball.txt` to run.
+Ultimately I'd like to support all of the Dartmouth BASICs (First thru Sixth); there is a runtime switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords up to Basic The Second (1964) are available, and also with `INPUT` from Basic The Third (to enable the Football Championship program `ftball.txt` to run).
 
-* 2022/03/03: Tag 0.10.1 (hopefully) complete implementation of Basic The First
+* 2022/03/03: Tag 0.10.1 (hopefully complete) implementation of Basic The First (May 1964).
+
+* 2022/05/02: Tag 0.20.1 (hopefully complete) implementation of Basic The Second (October 1964, originally known as CARDBASIC).
 
 ## Bugs
 
