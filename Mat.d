@@ -1,6 +1,7 @@
 import std.stdio : writeln;
 import Node : Node;
 import Expr : Expr;
+import SymbolTable : Edition;
 
 private void adrMat(int reg, string param, string id) {
     if (reg >= 3) {
@@ -223,7 +224,12 @@ class MatInv : Node {
     override void codegen() {
         adrMat(0, "res", symtab.getId(dest));
         adrMat(1, "par1", symtab.getId(src));
-        writeln("\tadrl\tr2, .DET");
+        if (symtab.edition >= Edition.Fourth) {
+            writeln("\tadrl\tr2, .DET");
+        }
+        else {
+            writeln("\tmov\tr2, #0");
+        }
         writeln("\tmov\tr3, #", symtab.line & 0xff00);
         writeln("\torr\tr3, r3, #", symtab.line & 0xff);
         writeln("\tbl\tmat_inv(PLT)");

@@ -19,7 +19,7 @@ struct Mat {
 struct Data {
     unsigned data_p;
     unsigned data_m;
-    double data[0];
+    double data[];
 };
 
 int pos = 0, vpos = 0;

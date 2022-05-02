@@ -1,6 +1,6 @@
 import std.stdio : writeln, write;
 import Node : Node;
-import SymbolTable : SymbolTable;
+import SymbolTable : SymbolTable, Edition;
 
 public enum Op { Add, Sub, Mul, Div, Exp, Neg };
 public immutable int number_fp_regs = 8;
@@ -233,14 +233,14 @@ class MathFn : Expr {
                 writeln("\tbl\tatan(PLT)");
                 break;
             case "INT":
-                if (symtab.edition < 3) {
+                if (symtab.edition >= Edition.Third) {
+                    writeln("\tbl\tfloor(PLT)");
+                }
+                else {
                     writeln("\tvcmp.f64\td0, #0");
                     writeln("\tvmrs\tAPSR_nzcv, FPSCR");
                     writeln("\tblgt\tfloor(PLT)");
                     writeln("\tbllt\tceil(PLT)");
-                }
-                else {
-                    writeln("\tbl\tfloor(PLT)");
                 }
                 break;
             case "LOG":
@@ -256,7 +256,12 @@ class MathFn : Expr {
                 writeln("\tbl\tfabs(PLT)");
                 break;
             case "SGN":
-                writeln("\tbl\tsgn(PLT)"); // user function
+                if (symtab.edition >= Edition.Third) {
+                    writeln("\tbl\tsgn(PLT)"); // user function
+                }
+                else {
+                    goto default;
+                }
                 break;
             default:
                 throw new Exception("BAD MathFn");

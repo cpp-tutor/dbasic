@@ -35,8 +35,8 @@ class LexerImpl : Lexer {
         tuple( "IDN",     TokenKind.IDN,     Edition.Second ),
         tuple( "TRN",     TokenKind.TRN,     Edition.Second ),
         tuple( "INV",     TokenKind.INV,     Edition.Second ),
-        tuple( "DET",     TokenKind.DET,     Edition.Second ),
         tuple( "INPUT",   TokenKind.INPUT,   Edition.Third  ),
+        tuple( "DET",     TokenKind.DET,     Edition.Fourth ),
     ];
     private static immutable Matches = [
         tuple( TokenKind.WS,          ` +`                                                          ),
@@ -58,7 +58,7 @@ class LexerImpl : Lexer {
         tuple( TokenKind.DOLLAR,      `\$`                                                          ),
         tuple( TokenKind.COMMA,       `,`                                                           ),
         tuple( TokenKind.SEMICOLON,   `;`                                                           ),
-        tuple( TokenKind.EOL,         `\n`                                                          ),
+        tuple( TokenKind.EOL,         `\n|\r\n`                                                     ),
     ];
     private string line_input = "";
     private SymbolTable symtab;

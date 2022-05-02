@@ -32,7 +32,7 @@
     import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next;
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall;
     import LexerImpl : LexerImpl;
-    import SymbolTable : SymbolTable;
+    import SymbolTable : SymbolTable, Edition;
     import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr;
     import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar;
 }
@@ -75,7 +75,7 @@ Stmt    : Lineno { next = next.link($$); }
         | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
         | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatIdn($2, $6); next = next.link($$); }
         | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); $$ = new MatTrn($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); symtab.initializeId(symtab.installId("DET")); $$ = new MatInv($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); if (symtab.edition >= Edition.Fourth) symtab.initializeId(symtab.installId("DET")); $$ = new MatInv($2, $6); next = next.link($$); }
         | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($8); $$ = new MatScalar($2, $8, $5); next = next.link($$); }
         // BASIC the Third
         | INPUT InputSq EOL {}
