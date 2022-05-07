@@ -28,7 +28,6 @@ class LexerImpl : Lexer {
         tuple( "THEN",    TokenKind.THEN,    Edition.First  ),
         tuple( "TO",      TokenKind.TO,      Edition.First  ),
         tuple( "STEP",    TokenKind.STEP,    Edition.First  ),
-        tuple( "FN",      TokenKind.FN,      Edition.First  ),
         tuple( "MAT",     TokenKind.MAT,     Edition.Second ),
         tuple( "ZER",     TokenKind.ZER,     Edition.Second ),
         tuple( "CON",     TokenKind.CON,     Edition.Second ),
@@ -41,7 +40,8 @@ class LexerImpl : Lexer {
     private static immutable Matches = [
         tuple( TokenKind.WS,          ` +`                                                          ),
         tuple( TokenKind.MATHFN,      `(SQR|SIN|COS|TAN|COT|ASN|ACS|ATN|INT|LOG|EXP|RND|ABS|SGN)\(` ),
-        tuple( TokenKind.KEYWORD,     `[A-Z][A-Z]+`                                                 ),
+        tuple( TokenKind.FNIDENT,     `FN([A-Z])`                                                   ),
+        tuple( TokenKind.KEYWORD,     `[A-Z]([A-Z])+`                                               ),
         tuple( TokenKind.IDENT,       `[A-Z]([0-9])?`                                               ),
         tuple( TokenKind.NUMBER,      `[0-9]*\.[0-9]*(E(-)?[0-9]+)?`                                ),
         tuple( TokenKind.INTEGER,     `0|[1-9][0-9]*`                                               ),
@@ -142,6 +142,9 @@ class LexerImpl : Lexer {
                     case TokenKind.MATHFN:
                         line_input = line_input[match.hit.length .. $];
                         return Symbol(TokenKind.MATHFN, match.hit[0 .. $ - 1]);
+                    case TokenKind.FNIDENT:
+                        line_input = line_input[match.hit.length .. $];
+                        return Symbol(TokenKind.FNIDENT, match.hit[2 .. $]);
                     default:
                         line_input = line_input[match.hit.length .. $];
                         return Symbol(token[0]);

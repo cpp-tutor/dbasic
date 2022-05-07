@@ -19,8 +19,8 @@ class SymbolTable {
     private double[] constant_list, data_list;
     private ushort[int] dims;
     private Tuple!(ushort,ushort)[int] dims2;
-    public struct Function { int param_ident; Expr fn_expr; }
-    private Function[int] functions;
+    public struct Function { int[] param_idents; Expr fn_expr; }
+    private Function[string] functions;
     private bool[int] mats;
     private int basic_edition;
     this(Edition edition) {
@@ -153,22 +153,22 @@ class SymbolTable {
         }
         return id_list[i];
     }
-    void addFunction(int n, Function f) {
-        if (n !in functions) {
-            functions[n] = f;
+    void addFunction(string name, Function f) {
+        if (name !in functions) {
+            functions[name] = f;
         }
         else {
             error("FUNCTION ALREADY DEFINED");
         }
     }
-    ref Function getFunction(int n) {
-        if (n !in functions) {
+    ref Function getFunction(string name) {
+        if (name !in functions) {
             error("NO SUCH FUNCTION");
-            functions[n] = Function(0, new Constant(installConstant(0.0)));
-            return functions[n];
+            functions[name] = Function(new int[0], new Constant(installConstant(0.0)));
+            return functions[name];
         }
         else {
-            return functions[n];
+            return functions[name];
         }
     }
     void codegen() {

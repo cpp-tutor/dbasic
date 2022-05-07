@@ -10,14 +10,16 @@
 %token <ushort> LINENO
 %token <int> KEYWORD IDENT STRING INTEGER RELOP
 %token <double> NUMBER
-%token <string> MATHFN
+%token <string> MATHFN FNIDENT
 %nterm <Parser.Node> Stmt Lineno Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn Input
 %nterm <Parser.Expr> Expr
+%nterm <int[]> IdSq
+%nterm <Parser.Expr[]> ExprSq
 
 // Keywords which are valid at the beginning of a line
 %token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT INPUT
 // Other keywords
-%token THEN TO STEP FN ZER CON IDN TRN INV DET
+%token THEN TO STEP ZER CON IDN TRN INV DET
 // Internal grammatical tokens
 %token ASSIGN EQ NE LT LE GE GT LPAREN RPAREN DOLLAR COMMA SEMICOLON
 // Other functionality
@@ -60,7 +62,8 @@ Stmt    : Lineno { next = next.link($$); }
         | DATA DataSq EOL {}
         | READ ReadSq EOL {}
         | DIM DimSq EOL {}
-        | DEF FN IDENT LPAREN IDENT RPAREN ASSIGN Expr EOL { symtab.initializeId($5); symtab.addFunction($3, SymbolTable.Function($5, $8)); }
+        | DEF FNIDENT LPAREN IdSq RPAREN ASSIGN Expr EOL { foreach(id; $4) symtab.initializeId(id); symtab.addFunction($2, SymbolTable.Function($4, $7)); }
+        | DEF FNIDENT ASSIGN Expr EOL { symtab.addFunction($2, SymbolTable.Function(new int[0], $4)); }
         | RETURN EOL { $$ = new Return(); next = next.link($$); }
         | REM EOL { }
         | END EOL { if (For.pop() != -1) symtab.error("FOR WITHOUT NEXT"); symtab.endOfProgram(); }
@@ -136,6 +139,14 @@ Dim     : IDENT LPAREN INTEGER RPAREN { symtab.initializeDim($1, true, cast(usho
         | IDENT LPAREN INTEGER COMMA INTEGER RPAREN { symtab.initializeDim2($1, true, cast(ushort)$3, cast(ushort)$5); }
         ;
 
+IdSq    : IDENT { int[] i; $$ = i; $$ ~= $1; }
+        | IdSq COMMA IDENT { $$ ~= $3; }
+        ;
+
+ExprSq  : Expr { Expr[] e; $$ = e; $$ ~= $1; }
+        | ExprSq COMMA Expr { $$ ~= $3; }
+        ;
+
 MatPr   : MatPrEn { $$ = $1; }
         | MatPrSq MatPrEn { $$ = $1; $$.linkLast($2); }
         ;
@@ -165,7 +176,8 @@ Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         | INTEGER { $$ = new Constant(symtab.installConstant($1)); }
         | IDENT { $$ = new Identifier($1); }
         | MATHFN Expr RPAREN { $$ = new MathFn($1, $2); }
-        | FN IDENT LPAREN Expr RPAREN { $$ = new FnCall($2, $4); }
+        | FNIDENT LPAREN ExprSq RPAREN { $$ = new FnCall($1, $3); }
+        | FNIDENT { $$ = new FnCall($1, new Expr[0]); }
         | IDENT LPAREN Expr RPAREN { $$ = new Dim($1, $3); }
         | IDENT LPAREN Expr COMMA Expr RPAREN { $$ = new Dim2($1, $3, $5); }
         | Expr PLUS Expr { $$ = new Operation($1, Op.Add, $3); }

@@ -272,17 +272,23 @@ class MathFn : Expr {
 }
 
 class FnCall : Expr {
-    private int fn_ident;
-    private Expr arg;
-    this(int i, Expr e) {
-        fn_ident = i;
-        arg = e;
+    private string fn_name;
+    private Expr[] args;
+    this(string n, Expr[] e) {
+        fn_name = n;
+        args = e;
+        auto func = symtab.getFunction(fn_name);
+        if (func.param_idents.length != args.length) {
+            symtab.error("WRONG NUMBER OF ARGUMENTS");
+        }
     }
     override void codegen() {
-        auto func = symtab.getFunction(fn_ident);
-        arg.codegen();
-        writeln("\tadrl\tr0, .", symtab.getId(func.param_ident));
-        writeln("\tvstr.f64\td", arg.result, ", [r0]");
+        auto func = symtab.getFunction(fn_name);
+        foreach(i, arg; args) {
+            arg.codegen();
+            writeln("\tadrl\tr0, .", symtab.getId(func.param_idents[i]));
+            writeln("\tvstr.f64\td", arg.result, ", [r0]");
+        }
         func.fn_expr.codegen();
         setResult(func.fn_expr.result);
     }
