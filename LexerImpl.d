@@ -34,8 +34,10 @@ class LexerImpl : Lexer {
         tuple( "IDN",     TokenKind.IDN,     Edition.Second ),
         tuple( "TRN",     TokenKind.TRN,     Edition.Second ),
         tuple( "INV",     TokenKind.INV,     Edition.Second ),
+        tuple( "RESTORE", TokenKind.RESTORE, Edition.Third  ),
         tuple( "INPUT",   TokenKind.INPUT,   Edition.Third  ),
-        tuple( "DET",     TokenKind.DET,     Edition.Fourth ),
+        tuple( "DET",     TokenKind.DET,     Edition.Third  ),
+        tuple( "NUM",     TokenKind.NUM,     Edition.Third  ),
     ];
     private static immutable Matches = [
         tuple( TokenKind.WS,          ` +`                                                          ),

@@ -31,7 +31,7 @@ class SymbolTable {
     }
     void error(string msg) {
         if (nerrs < max_errs) {
-            stderr.writeln(msg, " AT LINE ", current_line);
+            stderr.writeln(msg, " IN ", current_line);
             ++nerrs;
         }
     }
@@ -148,7 +148,7 @@ class SymbolTable {
         if ((i < 0) || (i >= id_list.length)) {
             throw new Exception("BAD IDENT");
         }
-        if (!id_initialized[i] && !func && i !in mats) {
+        if (!id_initialized[i] && !func && i !in mats && i !in dims && i !in dims2) {
             error("NO SUCH VARIABLE");
         }
         return id_list[i];

@@ -178,6 +178,9 @@ class Operation : Expr {
                 writeln("\tvmov.f64\td0, d", (cast(Expr)left).result);
                 writeln("\tvmov.f64\td1, d", (cast(Expr)right).result);
                 push_fp_regs();
+                if (symtab.edition < Edition.Third) {
+                    writeln("\tbl\tfabs(PLT)"); // recreate bug in early editions
+                }
                 writeln("\tbl\tpow(PLT)");
                 pop_fp_regs();
                 writeln("\tvmov.f64\td", result, ", d0");
@@ -196,6 +199,9 @@ class MathFn : Expr {
     this(string fn_id, Expr e) {
         fn_ident = fn_id;
         left = e;
+        if (symtab.edition < Edition.Third && fn_ident == "SGN") {
+            symtab.error("INVALID FUNCTION FOR THIS EDITION");
+        }
     }
     override void codegen() {
         if (fn_ident != "RND") {
@@ -256,12 +262,7 @@ class MathFn : Expr {
                 writeln("\tbl\tfabs(PLT)");
                 break;
             case "SGN":
-                if (symtab.edition >= Edition.Third) {
-                    writeln("\tbl\tsgn(PLT)"); // user function
-                }
-                else {
-                    goto default;
-                }
+                writeln("\tbl\tsgn(PLT)"); // user function
                 break;
             default:
                 throw new Exception("BAD MathFn");

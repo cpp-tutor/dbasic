@@ -162,9 +162,9 @@ class MatZerCon : Node {
         writeln("\tstr\tr2, [r0, #0]");
         writeln("\tstr\tr1, [r0, #4]");
         adrMat(0, "par1", symtab.getId(ident));
-        writeln("\tmov\tr1, #", symtab.line & 0xff00);
-        writeln("\torr\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tmov\tr2, #", con ? "1" : "0");
+        writeln("\tmov\tr1, #", con ? "1" : "0");
+        writeln("\tmov\tr2, #", symtab.line & 0xff00);
+        writeln("\torr\tr2, r2, #", symtab.line & 0xff);
         writeln("\tbl\tmat_zer_con(PLT)");
         super.codegen();
     }
@@ -256,6 +256,38 @@ class MatScalar : Node {
         writeln("\tmov\tr2, #", symtab.line & 0xff00);
         writeln("\torr\tr2, r2, #", symtab.line & 0xff);
         writeln("\tbl\tmat_scalar(PLT)");
+        super.codegen();
+    }
+}
+
+class MatZerConIdnDim : Node {
+    private int ident, type;
+    this(int id, int ty) {
+        ident = id;
+        type = ty;
+    }
+    override void codegen() {
+        adrMat(0, "res", symtab.getId(ident));
+        writeln("\tmov\tr1, #", type);
+        writeln("\tmov\tr2, #", symtab.line & 0xff00);
+        writeln("\torr\tr2, r2, #", symtab.line & 0xff);
+        writeln("\tbl\tmat_zer_con_idn_dim(PLT)");
+        super.codegen();
+    }
+}
+
+class MatInput : Node {
+    private int ident;
+    this(int id) {
+        ident = id;
+    }
+    override void codegen() {
+        writeln("\tadrl\tr0, ._data", symtab.getId(ident));
+        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
+        writeln("\tadrl\tr2, .NUM");
+        writeln("\tmov\tr3, #", symtab.line & 0xff00);
+        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
+        writeln("\tbl\tmat_input(PLT)");
         super.codegen();
     }
 }

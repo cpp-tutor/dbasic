@@ -4,7 +4,7 @@ import Expr : Expr;
 import Parser : Parser, TokenKind;
 
 class Node {
-    protected Node left, right; //fixme
+    protected Node left, right;
     static protected SymbolTable symtab;
     this() {
         left = right = null;
@@ -538,6 +538,15 @@ class Next : Node {
     override void codegen() {
         writeln("\tb\t._for_incr", for_id);
         writeln("._for_end", for_id, ":");
+        super.codegen();
+    }
+}
+
+class Restore : Node {
+    override void codegen() {
+        writeln("\tadrl\tr0, ._data_ptr");
+        writeln("\tmov\tr1, #0");
+        writeln("\tstr\tr1, [r0]");
         super.codegen();
     }
 }

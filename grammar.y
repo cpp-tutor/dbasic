@@ -17,9 +17,9 @@
 %nterm <Parser.Expr[]> ExprSq
 
 // Keywords which are valid at the beginning of a line
-%token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT INPUT
+%token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT RESTORE INPUT
 // Other keywords
-%token THEN TO STEP ZER CON IDN TRN INV DET
+%token THEN TO STEP ZER CON IDN TRN INV DET NUM
 // Internal grammatical tokens
 %token ASSIGN EQ NE LT LE GE GT LPAREN RPAREN DOLLAR COMMA SEMICOLON
 // Other functionality
@@ -31,12 +31,12 @@
 %right EXP
 
 %code {
-    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next;
+    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore;
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall;
     import LexerImpl : LexerImpl;
     import SymbolTable : SymbolTable, Edition;
     import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr;
-    import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar;
+    import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput;
 }
 
 %%
@@ -81,6 +81,11 @@ Stmt    : Lineno { next = next.link($$); }
         | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); if (symtab.edition >= Edition.Fourth) symtab.initializeId(symtab.installId("DET")); $$ = new MatInv($2, $6); next = next.link($$); }
         | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($8); $$ = new MatScalar($2, $8, $5); next = next.link($$); }
         // BASIC the Third
+        | MAT IDENT ASSIGN ZER EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 0); next = next.link($$); }
+        | MAT IDENT ASSIGN CON EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 1); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 2); next = next.link($$); }
+        | MAT INPUT IDENT EOL { symtab.initializeDim($3); symtab.initializeId(symtab.installId("NUM")); $$ = new MatInput($3); next = next.link($$); }
+        | RESTORE EOL { $$ = new Restore(); next = next.link($$); }
         | INPUT InputSq EOL {}
         ;
 
@@ -188,4 +193,5 @@ Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         | MINUS Expr %prec UMINUS { $$ = new Operation($2, Op.Neg); }
         | LPAREN Expr RPAREN { $$ = $2; }
         | DET { $$ = new Identifier(symtab.installId("DET")); }
+        | NUM { $$ = new Identifier(symtab.installId("NUM")); }
         ;

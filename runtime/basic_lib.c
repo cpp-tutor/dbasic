@@ -1,6 +1,7 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 
 extern int basic_run();
@@ -66,9 +67,7 @@ void print_comma() {
 
 void print_semicolon() {
     putchar(' ');
-    /*while (++pos % SemiColon) {
-        putchar(' ');
-    }*/
+    ++pos;
     if ((pos + Comma) > PrintWidth) {
         putchar('\n');
         pos = 0;
@@ -228,7 +227,7 @@ void mat_mul(struct Mat *result, struct Mat *param1, struct Mat *param2, short l
     }
 }
 
-void mat_zer_con(struct Mat *m, short l, bool con) {
+void mat_zer_con(struct Mat *m, bool con, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
@@ -242,6 +241,9 @@ void mat_zer_con(struct Mat *m, short l, bool con) {
 }
 
 void mat_idn(struct Mat *m, short l) {
+    if (m->mat->rows != m->mat->cols) {
+        runtime_error(7, l);
+    }
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
@@ -351,6 +353,48 @@ void mat_scalar(struct Mat *result, struct Mat *source, double scalar, short l) 
         }
         d += result->dim->cols + 1;
     }
+}
+
+void mat_zer_con_idn_dim(struct Mat *m, int t, short l) {
+    m->mat->rows = m->dim->rows;
+    m->mat->cols = m->dim->cols;
+    switch (t) {
+        case 0:
+            mat_zer_con(m, false, l);
+            break;
+        case 1:
+            mat_zer_con(m, true, l);
+            break;
+        case 2:
+            mat_idn(m, l);
+            break;
+        default:
+            break;
+    }
+}
+
+void mat_input(double *d, unsigned *cols, double *num, short l) {
+    char buffer[TmpBufSz];
+    unsigned c = 0;
+    print_string("? ");
+    fgets(buffer, TmpBufSz, stdin);
+    char *p = buffer, *next;
+    while (*p >= ' ' && c <= *cols) {
+        while ((next = strchr(p, ',')) != 0 && c < *cols) {
+            *next = '\0';
+            sscanf(p, "%lf", ++d);
+            ++c;
+            p = next + 1;
+        }
+        sscanf(p, "%lf", ++d);
+        ++c;
+        if (c <= *cols) {
+            print_string("? ");
+            fgets(buffer, TmpBufSz, stdin);
+            p = buffer;
+        }
+    }
+    *num = c;
 }
 
 void read_number(double *n) {
