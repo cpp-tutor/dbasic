@@ -6,8 +6,10 @@ import Parser : Parser;
 import SymbolTable : SymbolTable, Edition;
 import Node : Node;
 
+immutable uint MAX_SUPPORTED_EDITION = 3;
+
 int main(const string[] args) {
-    uint edition = 3;
+    uint edition = MAX_SUPPORTED_EDITION;
     if (args.length == 2) {
         edition = to!uint(args[1]);
         if ((edition < 1) || (edition > 6)) {
@@ -17,7 +19,7 @@ int main(const string[] args) {
     }
     auto symtab = new SymbolTable(cast(Edition)edition);
     auto lexer = new LexerImpl(symtab);
-    stderr.writeln("Edition: BASIC The ", to!string(symtab.edition), symtab.edition > 2 ? " (partial)" : "");
+    stderr.writeln("BASIC The ", to!string(symtab.edition), symtab.edition > MAX_SUPPORTED_EDITION ? " (not yet implemented)" : "");
     auto head = new Node(symtab);
     auto parser = new Parser(lexer, symtab, head);
     auto msg = collectExceptionMsg(parser.parse());

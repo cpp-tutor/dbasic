@@ -1,4 +1,5 @@
 # Makefile for Dartmouth BASIC Compiler implementation (Editions First to Sixth)
+# note: run with "make -f Makefile.llvm"
 
 BASE = dbasic
 DMD = ldc
