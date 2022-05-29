@@ -256,6 +256,7 @@ class MathFn : Expr {
                 writeln("\tbl\texp(PLT)");
                 break;
             case "RND":
+                writeln("\tmov\tr0, #0");
                 writeln("\tbl\trandom_lcg(PLT)");
                 break;
             case "ABS":
@@ -278,10 +279,8 @@ class FnCall : Expr {
     this(string n, Expr[] e) {
         fn_name = n;
         args = e;
-        auto func = symtab.getFunction(fn_name);
-        if (func.param_idents.length != args.length) {
-            symtab.error("WRONG NUMBER OF ARGUMENTS");
-        }
+        symtab.addFunction(n, symtab.Function(new int[0], null, -1, e.length));
+        symtab.installId("FN" ~ fn_name);
     }
     override void codegen() {
         auto func = symtab.getFunction(fn_name);
@@ -290,7 +289,43 @@ class FnCall : Expr {
             writeln("\tadrl\tr0, .", symtab.getId(func.param_idents[i]));
             writeln("\tvstr.f64\td", arg.result, ", [r0]");
         }
-        func.fn_expr.codegen();
-        setResult(func.fn_expr.result);
+        if (func.fn_expr !is null) {
+            func.fn_expr.codegen();
+            setResult(func.fn_expr.result);
+        }
+        else {
+            setResult(allocateReg());
+            writeln("\tbl\t.", func.fn_line);
+            writeln("\tadrl\tr0, .FN", fn_name);
+            writeln("\tvldr.f64\td", result, ", [r0]");
+        }
+    }
+}
+
+class StringExpr : Node {
+    this() {
+        // empty
+    }
+}
+
+class StringVariable : StringExpr {
+    private int ident;
+    this(int id) {
+        ident = id;
+        symtab.initializeString(ident);
+    }
+    override void codegen() {
+        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
+        writeln("\tldr\tr0, [r0]");
+    }
+}
+
+class StringConstant : StringExpr {
+    private int ident;
+    this(int id) {
+        ident = id;
+    }
+    override void codegen() {
+        writeln("\tadrl\tr0, ._s", ident);
     }
 }

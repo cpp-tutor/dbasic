@@ -1,6 +1,6 @@
 import std.stdio : writeln;
 import Node : Node;
-import Expr : Expr;
+import Expr : Expr, StringExpr;
 
 class Print : Node {
     this(Node pt) {
@@ -48,7 +48,7 @@ class String : Node {
 }
 
 class PrintExpr : Node {
-    this(Node e) {
+    this(Expr e) {
         left = e;
     }
     override void codegen() {
@@ -56,6 +56,31 @@ class PrintExpr : Node {
         left.codegen();
         writeln("\tvmov.f64\td0, d", (cast(Expr)left).result);
         writeln("\tbl\tprint_number(PLT)");
+        super.codegen();
+    }
+}
+
+class PrintString : Node {
+    this(StringExpr e) {
+        left = e;
+    }
+    override void codegen() {
+        left.codegen();
+        writeln("\tbl\tprint_string(PLT)");
+        super.codegen();
+    }
+}
+
+class PrintTab : Node {
+    this(Expr e) {
+        left = e;
+    }
+    override void codegen() {
+        Expr.clearRegs();
+        left.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left)).result);
+        writeln("\tvmov\tr0, s0");
+        writeln("\tbl\tprint_tab(PLT)");
         super.codegen();
     }
 }

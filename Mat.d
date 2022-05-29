@@ -40,8 +40,9 @@ class MatRead : Node {
         writeln("\tstr\tr1, [r0, #4]");
         adrMat(0, "par1", symtab.getId(ident));
         writeln("\tadrl\tr1, ._data_ptr");
-        writeln("\tmov\tr2, #", symtab.line & 0xff00);
-        writeln("\torr\tr2, r2, #", symtab.line & 0xff);
+        writeln("\tadrl\tr2, ._data_num");
+        writeln("\tmov\tr3, #", symtab.line & 0xff00);
+        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
         writeln("\tbl\tmat_read(PLT)");
         super.codegen();
     }

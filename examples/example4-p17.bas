@@ -1,0 +1,5 @@
+10 LET X = 1
+20 PRINT X, SQR(X)
+30 LET X = X + 1
+40 IF X <= 100 THEN 20
+50 END

@@ -1,0 +1,7 @@
+10 FOR I = 0 TO 10
+20 READ A(I)
+25 PRINT A(I),
+30 NEXT I
+35 PRINT
+40 DATA 2, 3, -5, 5, 2.2, 4, -9, 123, 4, -4, 3
+50 END

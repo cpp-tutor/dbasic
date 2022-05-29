@@ -20,11 +20,11 @@ struct Mat {
 struct Data {
     unsigned data_p;
     unsigned data_m;
-    double data[];
+    int data_idx[];
 };
 
-int pos = 0, vpos = 0;
-const int TmpBufSz = 16, PrintWidth = 75, Comma = 15, SemiColon = 3;
+unsigned pos = 0, vpos = 0;
+const unsigned TmpBufSz = 16, PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
 
 void print_string(const char *s) {
     while (*s) {
@@ -75,6 +75,13 @@ void print_semicolon() {
     }
 }
 
+void print_tab(unsigned tab) {
+    while(pos < tab && pos < PrintWidth) {
+        putchar(' ');
+        ++pos;
+    }
+}
+
 void runtime_error(int err, short line) {
     switch (err) {
         case 1:
@@ -97,6 +104,18 @@ void runtime_error(int err, short line) {
             break;
         case 7:
             print_string("BAD MATRIX SIZE");
+            break;
+        case 8:
+            print_string("EXPECTED TO READ A NUMBER");
+            break;
+        case 9:
+            print_string("EXPECTED TO READ A STRING");
+            break;
+        case 10:
+            print_string("STRING TOO LONG");
+            break;
+        case 11:
+            print_string("ON GOTO OUT OF RANGE");
             break;
         default:
             print_string("RUNTIME ERROR");
@@ -143,7 +162,7 @@ void mat_print(struct Mat *m, bool packed) {
     }
 }
 
-void mat_read(struct Mat *m, struct Data *rd, short l) {
+void mat_read(struct Mat *m, struct Data *rd, double *num_data, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
@@ -153,7 +172,11 @@ void mat_read(struct Mat *m, struct Data *rd, short l) {
             if (rd->data_p == rd->data_m) {
                 runtime_error(1, l);
             }
-            *(d + c + 1) = rd->data[(rd->data_p)++];
+            if (rd->data_idx[rd->data_p] >= 0) {
+                runtime_error(8, l);
+            }
+            *(d + c + 1) = num_data[-1 - (rd->data_idx[rd->data_p])];
+            ++(rd->data_p);
         }
         d += m->dim->cols + 1;
     }
@@ -397,25 +420,69 @@ void mat_input(double *d, unsigned *cols, double *num, short l) {
     *num = c;
 }
 
+void change_from_string(unsigned char **s, double *d, unsigned sz, short l) {
+    unsigned len = strlen(*s);
+    if (len > sz) {
+        runtime_error(6, l);
+    }
+    for (unsigned i = 0; i < len; ++i) {
+        d[i + 1] = (*s)[i];
+    }
+    d[0] = len;
+}
+
+void change_to_string(unsigned char **s, double *d, unsigned sz, short l) {
+    unsigned len = d[0];
+    if (len > MaxString) {
+        runtime_error(10, l);
+    }
+    if (*s) {
+        free(*s);
+    }
+    *s = malloc(len + 1);
+    for (unsigned i = 0; i < len; ++i) {
+        (*s)[i] = d[i + 1];
+    }
+    (*s)[len] = '\0';
+}
+
 void read_number(double *n) {
+    static bool prompt = true;
     char buffer[TmpBufSz];
-    print_string("? ");
-    char *p = fgets(buffer, TmpBufSz, stdin);
-    p = p; // -Werror=unused-variable
+    if (prompt) {
+        print_string("? ");
+    }
+    char *p = buffer;
+    *p = fgetc(stdin);
+    while(*p != '\n' && *p != ',' && !feof(stdin)) {
+        ++p;
+        *p = fgetc(stdin);
+    }
+    prompt = (*p == '\n');
+    *++p = '\0';
     sscanf(buffer, "%lf", n);
     pos = 0;
     ++vpos;
 }
 
-void read_string(char *s, size_t n) {
-    char *p = fgets(s, n, stdin);
-    *p = '\0';
+char *read_string() {
+    char buffer[MaxString];
+    char *p = fgets(buffer, MaxString, stdin);
+    p = strchr(buffer, '\n');
+    if (p) {
+        *p = '\0';
+    }
     pos = 0;
     ++vpos;
+    return strdup(buffer);
 }
 
-double random_lcg() {
+double random_lcg(unsigned seed) {
     static unsigned int x = 1 << 19; // X(n+1) = (aX(n)+c) mod m
+    if (seed) {
+        x = seed;
+        return 0.0;
+    }
     x = (1103515245 * x + 12345) % (1u << 31);
     return x * 1.0 / (1u << 31);
 }

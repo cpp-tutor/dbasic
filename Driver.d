@@ -6,7 +6,7 @@ import Parser : Parser;
 import SymbolTable : SymbolTable, Edition;
 import Node : Node;
 
-immutable uint MAX_SUPPORTED_EDITION = 3;
+immutable uint MAX_SUPPORTED_EDITION = 4;
 
 int main(const string[] args) {
     uint edition = MAX_SUPPORTED_EDITION;
@@ -26,10 +26,10 @@ int main(const string[] args) {
     if (msg) {
         symtab.error(msg);
     }
-    if (!symtab.end) {
+    else if (!symtab.end && !symtab.errors) {
         symtab.error("MISSING END");
     }
-    if (symtab.errors == 0) {
+    if (!symtab.errors) {
         auto generate = {
             head.prelude();
             head.codegen();
