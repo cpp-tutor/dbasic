@@ -2,7 +2,7 @@ import std.stdio :  writeln, readln, stdin, stderr;
 import std.regex : matchFirst;
 import std.typecons : Tuple, tuple;
 import std.range.primitives : front;
-import std.string : strip, startsWith, indexOf;
+import std.string : strip, startsWith, indexOf, indexOfAny;
 import std.conv : parse, to;
 import std.uni : isNumber;
 import std.ascii : uppercase, letters, digits;
@@ -23,7 +23,7 @@ class LexerImpl : Lexer {
         tuple( "END",     TokenKind.END,     Edition.First  ),
         tuple( "STOP",    TokenKind.STOP,    Edition.First  ),
         tuple( "DEF",     TokenKind.DEF,     Edition.First  ),
-        tuple( "FN",      TokenKind.FNIDENT, Edition.First  ),
+        tuple( "FN",      TokenKind.FN, Edition.First  ),
         tuple( "RETURN",  TokenKind.RETURN,  Edition.First  ),
         tuple( "DIM",     TokenKind.DIM,     Edition.First  ),
         tuple( "REM",     TokenKind.REM,     Edition.First  ),
@@ -43,9 +43,9 @@ class LexerImpl : Lexer {
         tuple( "CHANGE",  TokenKind.CHANGE,  Edition.Fourth ),
         tuple( "ON",      TokenKind.ON,      Edition.Fourth ),
         tuple( "TAB",     TokenKind.TAB,     Edition.Fourth ),
+        tuple( "RANDOMIZE", TokenKind.RANDOM,  Edition.Fourth ),
         tuple( "RANDOM",  TokenKind.RANDOM,  Edition.Fourth ),
         tuple( "RND",     TokenKind.RND,     Edition.Fourth ),
-        tuple( "FNEND",   TokenKind.FNEND,   Edition.Fourth ),
     ];
     private static immutable Matches = [
         tuple( TokenKind.WS,          ` +`                                                          ),
@@ -111,21 +111,8 @@ class LexerImpl : Lexer {
                                 if (keyword[2] > symtab.edition) {
                                     symtab.error("INVALID KEYWORD FOR THIS EDITION");
                                 }
-                                if (keyword[0] == "REM" || keyword[0] == "RANDOM") {
+                                if (keyword[0] == "REM") {
                                     line_input = "\n";
-                                }
-                                else if (keyword[0] == "FN") {
-                                    if (line_input.startsWith("FNEND")) {
-                                        line_input = line_input[5 .. $];
-                                        return Symbol(TokenKind.FNEND);
-                                    }
-                                    else {
-                                        auto fn = "" ~ line_input[keyword[0].length];
-                                        if (uppercase.indexOf(fn) != -1) {
-                                            line_input = line_input[keyword[0].length + fn.length .. $];
-                                            return Symbol(TokenKind.FNIDENT, fn);
-                                        }
-                                    }
                                 }
                                 else {
                                     line_input = line_input[keyword[0].length .. $];
@@ -133,25 +120,20 @@ class LexerImpl : Lexer {
                                 return Symbol(keyword[1]);
                             }
                         }
-                        symtab.error("UNKNOWN KEYWORD");
-                        break;
+                        auto pos = line_input.indexOfAny(",\n\r"); // note: must always match
+                        auto data_str = Symbol(TokenKind.DATASTRING, symtab.installString(line_input[0 .. pos]));
+                        line_input = line_input[pos .. $];
+                        return data_str;
                     case TokenKind.IDENT:
                         if ((letters ~ digits).indexOf(line_input[match.hit.length]) == -1) {
                             line_input = line_input[match.hit.length .. $];
                             return Symbol(TokenKind.IDENT, symtab.installId(match.hit));
                         }
                         else {
-                            auto pos = line_input.indexOf(',');
-                            if (pos == -1) {
-                                auto data_str = Symbol(TokenKind.DATASTRING, symtab.installString(line_input[0 .. $ - 1]));
-                                line_input = "\n";
-                                return data_str;
-                            }
-                            else {
-                                auto data_str = Symbol(TokenKind.DATASTRING, symtab.installString(line_input[0 .. pos]));
-                                line_input = line_input[pos .. $];
-                                return data_str;
-                            }
+                            auto pos = line_input.indexOfAny(",\n\r");
+                            auto data_str = Symbol(TokenKind.DATASTRING, symtab.installString(line_input[0 .. pos]));
+                            line_input = line_input[pos .. $];
+                            return data_str;
                         }
                     case TokenKind.NUMBER:
                         line_input = line_input[match.hit.length .. $];

@@ -10,17 +10,17 @@
 %token <ushort> LINENO
 %token <int> KEYWORD IDENT STRING INTEGER RELOP DATASTRING
 %token <double> NUMBER
-%token <string> MATHFN FNIDENT
-%nterm <Parser.Node> Stmt Lineno Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn Input
+%token <string> MATHFN
+%nterm <Parser.Node> Stmt Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn MatRead Input
 %nterm <Parser.Expr> Expr
 %nterm <int[]> IdSq GotoSq
 %nterm <Parser.Expr[]> ExprSq
 %nterm <Parser.StringExpr> StrExpr
 
 // Keywords which are valid at the beginning of a line
-%token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT RESTORE INPUT CHANGE RANDOM FNEND
+%token LET READ DATA PRINT GO IF FOR NEXT END STOP DEF GOSUB RETURN DIM REM MAT RESTORE INPUT CHANGE RANDOM
 // Other keywords
-%token THEN TO STEP ZER CON IDN TRN INV DET NUM ON TAB RND
+%token THEN TO STEP FN ZER CON IDN TRN INV DET NUM ON TAB RND
 // Internal grammatical tokens
 %token ASSIGN EQ NE LT LE GE GT LPAREN RPAREN DOLLAR COMMA SEMICOLON APOSTROPHE
 // Other functionality
@@ -32,12 +32,12 @@
 %right EXP
 
 %code {
-    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize, FnEnd;
-    import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall, StringExpr, StringVariable, StringConstant;
+    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, LetDimString, ReadDimString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize;
+    import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall, StringExpr, StringVariable, StringConstant, StringIndexed;
     import LexerImpl : LexerImpl;
     import SymbolTable : SymbolTable, Edition;
     import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr, PrintString, PrintTab;
-    import Mat : MatRead, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput;
+    import Mat : MatRead, MatRead2, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput, MatReadString, MatFullPrintDimString;
 }
 
 %%
@@ -46,7 +46,7 @@ Stmts   : %empty
         | Stmts Stmt
         ;
 
-Stmt    : Lineno { next = next.link($$); }
+Stmt    : LINENO { $$ = new Line($1); next = next.link($$); }
         // BASIC the First
         | STOP EOL { $$ = new Stop(); next = next.link($$); }
         | PRINT Print EOL { $$ = new Print($2); next = next.link($$); }
@@ -63,14 +63,13 @@ Stmt    : Lineno { next = next.link($$); }
         | DATA DataSq EOL {}
         | READ ReadSq EOL {}
         | DIM DimSq EOL {}
-        | DEF FNIDENT LPAREN IdSq RPAREN ASSIGN Expr EOL { foreach(id; $4) symtab.initializeId(id); symtab.addFunction($2, SymbolTable.Function($4, $7, -1, $4.length)); }
-        | DEF FNIDENT ASSIGN Expr EOL { symtab.addFunction($2, SymbolTable.Function(new int[0], $4, -1, 0)); }
+        | DEF FN IDENT LPAREN IdSq RPAREN ASSIGN Expr EOL { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, $8, -1, $5.length)); }
+        | DEF FN IDENT ASSIGN Expr EOL { symtab.addFunction($3, SymbolTable.Function(new int[0], $5, -1, 0)); }
         | RETURN EOL { $$ = new Return(); next = next.link($$); }
         | REM EOL { }
-        | END EOL { symtab.fixup_refs(); return YYACCEPT; }
+        | END EOL { symtab.checkReferences(); return YYACCEPT; }
         // BASIC the Second (CardBasic)
-        | MAT READ IDENT LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($3, true); $$ = new MatRead($3, $5, $7); next = next.link($$); }
-        | MAT READ IDENT LPAREN Expr RPAREN EOL { symtab.initializeMat($3, true); $$ = new MatRead($3, $5, new Constant(symtab.installConstant(1))); next = next.link($$); }
+        | MAT READ MatRdSq EOL {}
         | MAT PRINT MatPr EOL { $$ = new MatPrint($3); next = next.link($$); }
         | MAT IDENT ASSIGN IDENT PLUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatAdd($2, $4, $6); next = next.link($$); }
         | MAT IDENT ASSIGN IDENT MINUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatSub($2, $4, $6); next = next.link($$); }
@@ -90,19 +89,19 @@ Stmt    : Lineno { next = next.link($$); }
         | INPUT InputSq EOL {}
         // BASIC the Fourth
         | LET IDENT DOLLAR ASSIGN StrExpr EOL { $$ = new LetString($2, $5); next = next.link($$); }
+        | LET IDENT DOLLAR LPAREN Expr RPAREN ASSIGN StrExpr EOL { $$ = new LetDimString($2, $5, $8); next = next.link($$); }
         | IF StrExpr RELOP StrExpr THEN INTEGER EOL { $$ = new IfString($2, $3, $4, cast(ushort)$6); next = next.link($$); }
         | IF StrExpr ASSIGN StrExpr THEN INTEGER EOL { $$ = new IfString($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
         | ON Expr GotoThen GotoSq EOL { $$ = new OnGoto($2, $4); next = next.link($$); }
         | CHANGE IDENT DOLLAR TO IDENT EOL { $$ = new ChangeFromString($2, $5); next = next.link($$); }
         | CHANGE IDENT TO IDENT DOLLAR EOL { $$ = new ChangeToString($2, $4); next = next.link($$); }
         | RANDOM EOL { $$ = new Randomize(); next = next.link($$); }
-        | DEF FNIDENT LPAREN IdSq RPAREN EOL { foreach(id; $4) symtab.initializeId(id); symtab.addFunction($2, SymbolTable.Function($4, null, symtab.line, $4.length)); symtab.registerFlow(symtab.line); }
-        | DEF FNIDENT EOL { symtab.addFunction($2, SymbolTable.Function(new int[0], null, symtab.line, 0)); symtab.registerFlow(symtab.line); }
-        | LET FNIDENT ASSIGN Expr EOL { $$ = new Let(symtab.installId("FN" ~ $2), $4); next = next.link($$); }
-        | FNEND EOL { $$ = new FnEnd(); next = next.link($$); }
-        ;
-
-Lineno  : LINENO { if (symtab.end) symtab.error("STATEMENT AFTER END"); $$ = new Line($1); }
+        | RESTORE TIMES EOL { $$ = new Restore(true, false); next = next.link($$); }
+        | RESTORE DOLLAR EOL { $$ = new Restore(false, true); next = next.link($$); }
+        | DEF FN IDENT LPAREN IdSq RPAREN EOL { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, null, symtab.line, $5.length)); symtab.registerFlow(symtab.line); }
+        | DEF FN IDENT EOL { symtab.addFunction($3, SymbolTable.Function(new int[0], null, symtab.line, 0)); symtab.registerFlow(symtab.line); }
+        | LET FN IDENT ASSIGN Expr EOL { $$ = new Let(symtab.installId("FN" ~ symtab.getId($3)), $5); next = next.link($$); }
+        | FN END EOL { $$ = new Return(); next = next.link($$); }
         ;
 
 Print   : %empty { $$ = new NewLine(); }
@@ -151,6 +150,7 @@ Read    : IDENT { $$ = new Read($1); next = next.link($$); }
         | IDENT LPAREN Expr RPAREN { $$ = new ReadDim($1, $3); next = next.link($$); }
         | IDENT LPAREN Expr COMMA Expr RPAREN { $$ = new ReadDim2($1, $3, $5); next = next.link($$); }
         | IDENT DOLLAR { $$ = new ReadString($1); next = next.link($$); }
+        | IDENT DOLLAR LPAREN Expr RPAREN { $$ = new ReadDimString($1, $4); next = next.link($$); }
         ;
 
 DimSq   : Dim {} // no type for $$
@@ -159,6 +159,7 @@ DimSq   : Dim {} // no type for $$
 
 Dim     : IDENT LPAREN INTEGER RPAREN { symtab.initializeDim($1, true, cast(ushort)$3); }
         | IDENT LPAREN INTEGER COMMA INTEGER RPAREN { symtab.initializeDim2($1, true, cast(ushort)$3, cast(ushort)$5); }
+        | IDENT DOLLAR LPAREN INTEGER RPAREN { symtab.initializeDimString($1, true, cast(ushort)$4); }
         ;
 
 IdSq    : IDENT { int[] i; $$ = i; $$ ~= $1; }
@@ -183,6 +184,17 @@ MatPrSt : IDENT COMMA { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
 
 MatPrEn : IDENT { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
         | IDENT SEMICOLON { symtab.initializeMat($1); $$ = new MatFullPrint($1, true); }
+        | IDENT DOLLAR { $$ = new MatFullPrintDimString($1); }
+        | IDENT DOLLAR SEMICOLON { $$ = new MatFullPrintDimString($1, true); }
+        ;
+
+MatRdSq : MatRead {} // no type for $$
+        | MatRdSq COMMA MatRead {}
+        ;
+
+MatRead : IDENT LPAREN Expr RPAREN { $$ = new MatRead($1, $3); next = next.link($$); }
+        | IDENT LPAREN Expr COMMA Expr RPAREN { $$ = new MatRead2($1, $3, $5); next = next.link($$); }
+        | IDENT DOLLAR LPAREN Expr RPAREN { $$ = new MatReadString($1, $4); next = next.link($$); }
         ;
 
 InputSq : Input {}
@@ -199,8 +211,8 @@ Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         | INTEGER { $$ = new Constant(symtab.installConstant($1)); }
         | IDENT { $$ = new Identifier($1); }
         | MATHFN Expr RPAREN { $$ = new MathFn($1, $2); }
-        | FNIDENT LPAREN ExprSq RPAREN { $$ = new FnCall($1, $3); }
-        | FNIDENT { $$ = (symtab.edition >= Edition.Fourth) ? new Identifier(symtab.installId("FN" ~ $1)) : new FnCall($1, new Expr[0]); }
+        | FN IDENT LPAREN ExprSq RPAREN { $$ = new FnCall($2, $4); }
+        | FN IDENT { $$ = (symtab.edition >= Edition.Fourth) ? new Identifier(symtab.installId("FN" ~ symtab.getId($2))) : new FnCall($2, new Expr[0]); }
         | IDENT LPAREN Expr RPAREN { $$ = new Dim($1, $3); }
         | IDENT LPAREN Expr COMMA Expr RPAREN { $$ = new Dim2($1, $3, $5); }
         | Expr PLUS Expr { $$ = new Operation($1, Op.Add, $3); }
@@ -216,6 +228,7 @@ Expr    : NUMBER { $$ = new Constant(symtab.installConstant($1)); }
         ;
 
 StrExpr : IDENT DOLLAR { $$ = new StringVariable($1); }
+        | IDENT DOLLAR LPAREN Expr RPAREN { $$ = new StringIndexed($1, $4); }
         | STRING { $$ = new StringConstant($1); }
         ;
 

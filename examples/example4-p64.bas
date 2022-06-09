@@ -1,0 +1,4 @@
+10 READ A$, B$, C$
+20 PRINT C$; B$; A$
+30 DATA ING, SHAR, TIME-
+40 END

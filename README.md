@@ -175,15 +175,17 @@ Wikipedia: https://en.wikipedia.org/wiki/Dartmouth_BASIC
 
 ## Motivation and Roadmap
 
-The intention is to recreate the original programming enviroment that existed in the mid- to late 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
+The intention is to recreate the original programming environment that existed in the mid- to late 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
 
-Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is envisaged; there is a compiler switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords up to Basic The Third (1966, without supplementary additions) are available, which allows the Football Championship program `ftball.txt` to compile.
+Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is envisaged; there is a compiler switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords up to Basic The Fourth (1968) are available; the current focus is on improving the quality of the code supporting this Edition.
 
 * 2022/03/03: Tag 0.10.1 (hopefully complete) implementation of Basic The First (May 1964)
 
 * 2022/05/02: Tag 0.20.1 (hopefully complete) implementation of Basic The Second (October 1964, originally known as CARDBASIC).
 
 * 2022/05/15: Tag 0.30.1 (hopefully complete) implementation of Basic The Third (1966)
+
+* 2022/06/09: Tag 0.40.1 (almost complete pending code and specification review) implementation of Basic The Fourth (1968)
 
 ## Bugs
 

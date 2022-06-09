@@ -20,7 +20,9 @@ struct Mat {
 struct Data {
     unsigned data_p;
     unsigned data_m;
-    int data_idx[];
+    unsigned data_p_s;
+    unsigned data_m_s;
+    const double data[];
 };
 
 unsigned pos = 0, vpos = 0;
@@ -88,10 +90,10 @@ void runtime_error(int err, short line) {
             print_string("OUT OF DATA");
             break;
         case 2:
-            print_string("ALREADY IN GOSUB");
+            print_string("END WITHIN GOSUB/FN");
             break;
         case 3:
-            print_string("NOT IN GOSUB");
+            print_string("NOT WITHIN GOSUB/FN");
             break;
         case 4:
             print_string("INDEX OUT OF BOUNDS");
@@ -105,17 +107,14 @@ void runtime_error(int err, short line) {
         case 7:
             print_string("BAD MATRIX SIZE");
             break;
-        case 8:
-            print_string("EXPECTED TO READ A NUMBER");
-            break;
-        case 9:
-            print_string("EXPECTED TO READ A STRING");
-            break;
         case 10:
             print_string("STRING TOO LONG");
             break;
         case 11:
             print_string("ON GOTO OUT OF RANGE");
+            break;
+        case 12:
+            print_string("UNINITIALIZED STRING");
             break;
         default:
             print_string("RUNTIME ERROR");
@@ -162,7 +161,28 @@ void mat_print(struct Mat *m, bool packed) {
     }
 }
 
-void mat_read(struct Mat *m, struct Data *rd, double *num_data, short l) {
+void mat_print_str(char **str, bool packed) {
+    while (*++str) {
+        print_string(*str);
+        if (packed) {
+            print_semicolon();
+        }
+        else {
+            print_comma();
+        }
+    }
+}
+
+void mat_read(double *d, unsigned sz, struct Data *rd, short l) {
+    for (unsigned s = 0; s != sz; ++s) {
+        if (rd->data_p == rd->data_m) {
+            runtime_error(1, l);
+        }
+        *(++d) = rd->data[(rd->data_p)++];
+    }
+}
+
+void mat_read2(struct Mat *m, struct Data *rd, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
@@ -172,13 +192,22 @@ void mat_read(struct Mat *m, struct Data *rd, double *num_data, short l) {
             if (rd->data_p == rd->data_m) {
                 runtime_error(1, l);
             }
-            if (rd->data_idx[rd->data_p] >= 0) {
-                runtime_error(8, l);
-            }
-            *(d + c + 1) = num_data[-1 - (rd->data_idx[rd->data_p])];
-            ++(rd->data_p);
+            *(d + c + 1) = rd->data[(rd->data_p)++];
         }
         d += m->dim->cols + 1;
+    }
+}
+
+void mat_read_str(char**str, unsigned sz, struct Data *rd, short l) {
+    char **data = (char **)(rd->data + rd->data_m);
+    for (unsigned s = 0; s != sz; ++s) {
+        if (rd->data_p_s == rd->data_m_s) {
+            runtime_error(1, l);
+        }
+        if (*++str) {
+            free((void *)(*str));
+        }
+        *str = strdup(data[(rd->data_p_s)++]);
     }
 }
 
@@ -396,28 +425,28 @@ void mat_zer_con_idn_dim(struct Mat *m, int t, short l) {
     }
 }
 
-void mat_input(double *d, unsigned *cols, double *num, short l) {
+void mat_input(double *d, unsigned *sz, double *num, short l) {
     char buffer[TmpBufSz];
-    unsigned c = 0;
+    unsigned s = 0;
     print_string("? ");
     fgets(buffer, TmpBufSz, stdin);
     char *p = buffer, *next;
-    while (*p >= ' ' && c <= *cols) {
-        while ((next = strchr(p, ',')) != 0 && c < *cols) {
+    while (*p >= ' ' && s <= *sz) {
+        while ((next = strchr(p, ',')) != 0 && s < *sz) {
             *next = '\0';
             sscanf(p, "%lf", ++d);
-            ++c;
+            ++s;
             p = next + 1;
         }
         sscanf(p, "%lf", ++d);
-        ++c;
-        if (c <= *cols) {
+        ++s;
+        if (s <= *sz) {
             print_string("? ");
             fgets(buffer, TmpBufSz, stdin);
             p = buffer;
         }
     }
-    *num = c;
+    *num = s;
 }
 
 void change_from_string(unsigned char **s, double *d, unsigned sz, short l) {
@@ -446,7 +475,7 @@ void change_to_string(unsigned char **s, double *d, unsigned sz, short l) {
     (*s)[len] = '\0';
 }
 
-void read_number(double *n) {
+void input_number(double *n) {
     static bool prompt = true;
     char buffer[TmpBufSz];
     if (prompt) {
@@ -465,7 +494,7 @@ void read_number(double *n) {
     ++vpos;
 }
 
-char *read_string() {
+char *input_string() {
     char buffer[MaxString];
     char *p = fgets(buffer, MaxString, stdin);
     p = strchr(buffer, '\n');

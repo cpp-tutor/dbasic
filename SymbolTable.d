@@ -15,16 +15,15 @@ class SymbolTable {
     private int current_line = -1;
     private int nerrs = 0;
     immutable int max_errs = 5;
-    private bool end_of_program = false;
-    private bool[] id_initialized;
+    private bool end_of_program = false, need_data = false, need_str_data = false;
     private string[] id_list, string_list;
-    private int[] data_list, data_str_list;
-    private double[] constant_list, data_num_list;
-    private ushort[int] dims;
+    private int[] data_str;
+    private double[] constant_list, data_num;
+    private ushort[int] dims, str_dims;
     private Tuple!(ushort,ushort)[int] dims2;
     public struct Function { int[] param_idents; Expr fn_expr; int fn_line; ulong nparams; }
-    private Function[string] functions;
-    private bool[int] mats, strings;
+    private Function[int] functions;
+    private bool[int] vars, mats, strings;
     private int basic_edition;
     this(Edition edition) {
         basic_edition = edition;
@@ -41,7 +40,7 @@ class SymbolTable {
     @property auto errors() {
         return nerrs;
     }
-    void fixup_refs() {
+    void checkReferences() {
         foreach (l, ty; lines) {
             if (ty == Line.BadRef) {
                 current_line = l;
@@ -55,6 +54,12 @@ class SymbolTable {
         }
         if (For.pop() != -1) {
             error("FOR WITHOUT NEXT");
+        }
+        if (need_data && !data_num.length) {
+            error("NO NUMERIC DATA");
+        }
+        if (need_str_data && !data_str.length) {
+            error("NO STRING DATA");
         }
         end_of_program = true;
     }
@@ -93,12 +98,13 @@ class SymbolTable {
         }
         else {
             id_list ~= id;
-            id_initialized ~= false;
             return cast(int)(id_list.length - 1);
         }
     }
     void initializeId(int id) {
-        id_initialized[id] = true;
+        if (id !in vars) {
+            vars[id] = true;
+        }
     }
     void initializeDim(int id, bool explicit_dim = false, ushort sz = 10) {
         if (id !in dims) {
@@ -139,6 +145,14 @@ class SymbolTable {
             }
         }
     }
+    void initializeDimString(int id, bool explicit_dim = false, ushort sz = 10) {
+        if (id !in str_dims) {
+            str_dims[id] = sz;
+        }
+        else if (explicit_dim) {
+            error("DIM ALREADY USED");
+        }
+    }
     int installString(string str) {
         auto pos = countUntil(string_list, str);
         if (pos != -1) {
@@ -160,12 +174,18 @@ class SymbolTable {
         }
     }
     void installData(double num) {
-        data_num_list ~= num;
-        data_list ~= -cast(int)data_num_list.length;
+        data_num ~= num;
     }
     void installData(int str) {
-        data_list ~= cast(int)data_str_list.length;
-        data_str_list ~= str;
+        data_str ~= str;
+    }
+    void useData(bool num = false, bool str = false) {
+        if (num) {
+            need_data = true;
+        }
+        if (str) {
+            need_str_data = true;
+        }
     }
     bool referencedLine(ushort l) {
         if (l !in lines) {
@@ -176,48 +196,48 @@ class SymbolTable {
         }
         return lines[l] == Line.Referenced;
     }
-    string getId(int i, bool func = false) {
+    string getId(int i) {
         if ((i < 0) || (i >= id_list.length)) {
             throw new Exception("BAD IDENT");
         }
-        if (!id_initialized[i] && !func && i !in mats && i !in dims && i !in dims2 && i !in strings) {
+        if (i !in vars && i !in mats && i !in dims && i !in dims2 && i !in strings && i !in functions && i !in str_dims) {
             error("NO SUCH VARIABLE");
         }
         return id_list[i];
     }
-    void addFunction(string name, Function f) {
-        if (name !in functions) {
-            functions[name] = f;
+    void addFunction(int name_id, Function f) {
+        if (name_id !in functions) {
+            functions[name_id] = f;
         }
         else {
-            if (functions[name].fn_expr is null && functions[name].fn_line == -1) {
-                if (f.nparams != functions[name].nparams) {
+            if (functions[name_id].fn_expr is null && functions[name_id].fn_line == -1) {
+                if (f.nparams != functions[name_id].nparams) {
                     error("INCORRECT NUMBER OF PARAMETERS");
                 }
                 if (f.fn_expr !is null || f.fn_line != -1) {
-                    functions[name] = f;
+                    functions[name_id] = f;
                 }
             }
             else {
-                error("FUNCTION ALREADY DEFINED");
+                if (f.fn_expr !is null || f.fn_line != -1) {
+                    error("FUNCTION ALREADY DEFINED");
+                }
             }
         }
     }
-    ref Function getFunction(string name) {
-        if (name !in functions) {
+    ref Function getFunction(int name_id) {
+        if (name_id !in functions) {
             error("NO SUCH FUNCTION");
-            functions[name] = Function(new int[0], null, -1);
-            return functions[name];
+            functions[name_id] = Function(new int[0], null, -1);
+            return functions[name_id];
         }
         else {
-            return functions[name];
+            return functions[name_id];
         }
     }
     void codegen() {
-        foreach (i, id; id_list) {
-            if (id_initialized[i]) {
-                writeln(".", id, ":\n\t.double\t0.0");
-            }
+        foreach (k, _; vars) {
+            writeln(".", id_list[k], ":\n\t.double\t0.0");
         }
         if (strings.length) {
             foreach (s, _; strings) {
@@ -228,23 +248,23 @@ class SymbolTable {
         foreach (i, c; constant_list) {
             writeln("._c", i, ":\n\t.double\t", c);
         }
-        if (data_list.length) {
+        if (data_num.length || data_str.length) {
+            writeln("\t.balign 8");
             writeln("._data_ptr:\n\t.word\t0");
-            writeln("._data_max:\n\t.word\t", data_list.length);
-            writeln("._data:");
-            foreach (d; data_list) {
-                if (d < 0) {
-                    writeln("\t.word\t", d);
-                }
-                else {
-                    writeln("\t.word\t._s", data_str_list[d], " - ._data");
+            writeln("._data_max:\n\t.word\t", data_num.length);
+            writeln("._data_str_ptr:\n\t.word\t0");
+            writeln("._data_str_max:\n\t.word\t", data_str.length);
+            // note: no gap and .balign 8
+            if (data_num.length) {
+                writeln("._data:");
+                foreach (n; data_num) {
+                    writeln("\t.double\t", n);
                 }
             }
-            if (data_num_list.length) {
-                writeln("\t.balign 8");
-                writeln("._data_num:");
-                foreach (n; data_num_list) {
-                    writeln("\t.double\t", n);
+            if (data_str.length) {
+                writeln("._str:");
+                foreach (s; data_str) {
+                    writeln("\t.word\t._s", s);
                 }
             }
         }
@@ -264,10 +284,17 @@ class SymbolTable {
                 writeln("\t.double\t0.0");
             }
         }
+        foreach (k, v; str_dims) {
+            writeln("._sizeS", id_list[k], ":\n\t.word\t", v);
+            writeln("._dataS", id_list[k], ":");
+            for (int i = 0; i <= v; ++i) { // note: <=
+                writeln("\t.word\t0");
+            }
+        }
         if (mats.length) {
-            writeln("._mat_res:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
-            writeln("._mat_par1:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
-            writeln("._mat_par2:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("._mat_result:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("._mat_param1:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
+            writeln("._mat_param2:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
             writeln("\t.balign 8");
         }
         foreach (k, _; mats) {

@@ -274,16 +274,16 @@ class MathFn : Expr {
 }
 
 class FnCall : Expr {
-    private string fn_name;
+    private int fn_id;
     private Expr[] args;
-    this(string n, Expr[] e) {
-        fn_name = n;
+    this(int n, Expr[] e) {
+        fn_id = n;
         args = e;
         symtab.addFunction(n, symtab.Function(new int[0], null, -1, e.length));
-        symtab.installId("FN" ~ fn_name);
+        symtab.installId("FN" ~ symtab.getId(fn_id));
     }
     override void codegen() {
-        auto func = symtab.getFunction(fn_name);
+        auto func = symtab.getFunction(fn_id);
         foreach(i, arg; args) {
             arg.codegen();
             writeln("\tadrl\tr0, .", symtab.getId(func.param_idents[i]));
@@ -295,8 +295,11 @@ class FnCall : Expr {
         }
         else {
             setResult(allocateReg());
-            writeln("\tbl\t.", func.fn_line);
-            writeln("\tadrl\tr0, .FN", fn_name);
+            writeln("\tadd\tr14, pc, #4");
+            writeln("\tpush\t{ r14 }");
+            writeln("\tb\t.", func.fn_line);
+            writeln("\tnop"); // for some armv3
+            writeln("\tadrl\tr0, .FN", symtab.getId(fn_id));
             writeln("\tvldr.f64\td", result, ", [r0]");
         }
     }
@@ -305,6 +308,13 @@ class FnCall : Expr {
 class StringExpr : Node {
     this() {
         // empty
+    }
+    override void codegen() {
+        writeln("\tteq\tr0, #0");
+        writeln("\tmoveq\tr0, #12"); // error: uninitialized string
+        writeln("\tmoveq\tr1, #", symtab.line & 0xff00);
+        writeln("\torreq\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tbleq\truntime_error(PLT)");
     }
 }
 
@@ -317,6 +327,7 @@ class StringVariable : StringExpr {
     override void codegen() {
         writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
         writeln("\tldr\tr0, [r0]");
+        super.codegen();
     }
 }
 
@@ -327,5 +338,30 @@ class StringConstant : StringExpr {
     }
     override void codegen() {
         writeln("\tadrl\tr0, ._s", ident);
+        super.codegen();
+    }
+}
+
+class StringIndexed : StringExpr {
+    private int ident;
+    this(int id, Expr idx) {
+        ident = id;
+        left = idx;
+    }
+    override void codegen() {
+        left.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)left).result);
+        writeln("\tvmov\tr0, s0");
+        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
+        writeln("\tldr\tr1, [r1]");
+        writeln("\tcmp\tr0, r1");
+        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
+        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
+        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tblgt\truntime_error(PLT)");
+        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
+        writeln("\tadd\tr1, r1, r0, LSL #2");
+        writeln("\tldr\tr0, [r1]");
+        super.codegen();
     }
 }

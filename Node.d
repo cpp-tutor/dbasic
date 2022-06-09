@@ -40,14 +40,20 @@ class Node {
         writeln("\t.fpu vfp");
         writeln("\t.type    basic_run, %function");
         writeln("basic_run:");
-        // r4 = RETURN address
-        writeln("\tpush\t{ r4, lr }");
-        writeln("\tmov\tr4, #0");
+        writeln("\tpush\t{ lr }");
+        writeln("\tmvn\tr0, #0");
+        writeln("\tpush\t{ r0 }");
     }
     final void interlude() const {
         writeln(".basic_end:");
+        writeln("\tpop\t{ r0 }");
+        writeln("\tcmn\tr0, #1");
+        writeln("\tmovne\tr0, #1"); // error: end within GOSUB/FN
+        writeln("\tmovne\tr1, #", symtab.line & 0xff00);
+        writeln("\torrne\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tblne\truntime_error(PLT)");
         writeln("\tmov\tr0, #0");
-        writeln("\tpop\t{ r4, pc }");
+        writeln("\tpop\t{ pc }");
         writeln("\t.balign 8");
     }
     void codegen() {
@@ -101,27 +107,23 @@ class GoSub : Node {
         if (!symtab.referencedLine(line)) {
             throw new Exception("BAD LINE");
         }
-        writeln("\tcmp\tr4, #0");
-        writeln("\tmovne\tr0, #2"); // error: already in GOSUB
-        writeln("\tmovne\tr1, #", symtab.line & 0xff00);
-        writeln("\torrne\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblne\truntime_error(PLT)");
-        writeln("\tmov\tr4, pc");
+        writeln("\tadd\tr14, pc, #4");
+        writeln("\tpush\t{ r14 }");
         writeln("\tb\t.", line);
         writeln("\tnop"); // for some armv3
-        writeln("\tmov\tr4, #0");
         super.codegen();
     }
 }
 
 class Return : Node {
     override void codegen() {
-        writeln("\tcmp\tr4, #0");
-        writeln("\tmoveq\tr0, #3"); // error: not in GOSUB
+        writeln("\tpop\t{ r14 }");
+        writeln("\tcmn\tr14, #1");
+        writeln("\tmoveq\tr0, #3"); // error: not within GOSUB/FN
         writeln("\tmoveq\tr1, #", symtab.line & 0xff00);
         writeln("\torreq\tr1, r1, #", symtab.line & 0xff);
         writeln("\tbleq\truntime_error(PLT)");
-        writeln("\tmov\tpc, r4");
+        writeln("\tmov\tpc, r14");
         super.codegen();
     }
 }
@@ -145,7 +147,6 @@ class LetDim : Node {
     private int ident;
     this(int i, Expr idx, Expr e) {
         ident = i;
-        symtab.initializeId(ident);
         symtab.initializeDim(ident);
         left = new Node(idx, e);
     }
@@ -176,7 +177,6 @@ class LetDim2 : Node {
     private int ident;
     this(int i, Expr idx1, Expr idx2, Expr e) {
         ident = i;
-        symtab.initializeId(ident);
         symtab.initializeDim2(ident);
         left = new Node(new Node(idx1, idx2), e);
     }
@@ -218,6 +218,7 @@ class Read : Node {
     this(int i) {
         ident = i;
         symtab.initializeId(ident);
+        symtab.useData(true);
     }
     override void codegen() {
         writeln("\tadrl\tr0, ._data_ptr");
@@ -230,20 +231,10 @@ class Read : Node {
         writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
         writeln("\tblge\truntime_error(PLT)");
         writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #2");
-        writeln("\tldr\tr3, [r3]");
-        writeln("\tcmp\tr3, #0");
-        writeln("\tmovge\tr0, #8"); // error: number expected
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
+        writeln("\tadd\tr3, r3, r2, LSL #3");
+        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tadd\tr2, r2, #1");
         writeln("\tstr\tr2, [r0]");
-        writeln("\trsb\tr3, r3, #0");
-        writeln("\tsub\tr3, r3, #1");
-        writeln("\tadrl\tr2, ._data_num");
-        writeln("\tadd\tr3, r2, r3, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tadrl\tr0, .", symtab.getId(ident));
         writeln("\tvstr.f64\td0, [r0]");
         super.codegen();
@@ -254,9 +245,9 @@ class ReadDim : Node {
     private int ident;
     this(int i, Expr e) {
         ident = i;
-        symtab.initializeId(ident);
-        symtab.initializeDim(ident);
         left = e;
+        symtab.initializeDim(ident);
+        symtab.useData(true);
     }
     override void codegen() {
         Expr.clearRegs();
@@ -283,20 +274,10 @@ class ReadDim : Node {
         writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
         writeln("\tblge\truntime_error(PLT)");
         writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #2");
-        writeln("\tldr\tr3, [r3]");
-        writeln("\tcmp\tr3, #0");
-        writeln("\tmovge\tr0, #8"); // error: number expected
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
+        writeln("\tadd\tr3, r3, r2, LSL #3");
+        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tadd\tr2, r2, #1");
         writeln("\tstr\tr2, [r0]");
-        writeln("\trsb\tr3, r3, #0");
-        writeln("\tsub\tr3, r3, #1");
-        writeln("\tadrl\tr2, ._data_num");
-        writeln("\tadd\tr3, r2, r3, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tpop\t{ r0 }");
         writeln("\tvstr.f64\td0, [r0]");
         super.codegen();
@@ -307,9 +288,9 @@ class ReadDim2 : Node {
     private int ident;
     this(int i, Expr idx1, Expr idx2) {
         ident = i;
-        symtab.initializeId(ident);
-        symtab.initializeDim2(ident);
         left = new Node(idx1, idx2);
+        symtab.initializeDim2(ident);
+        symtab.useData(true);
     }
     override void codegen() {
         Expr.clearRegs();
@@ -344,20 +325,10 @@ class ReadDim2 : Node {
         writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
         writeln("\tblge\truntime_error(PLT)");
         writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #2");
-        writeln("\tldr\tr3, [r3]");
-        writeln("\tcmp\tr3, #0");
-        writeln("\tmovge\tr0, #8"); // error: number expected
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
+        writeln("\tadd\tr3, r3, r2, LSL #3");
+        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tadd\tr2, r2, #1");
         writeln("\tstr\tr2, [r0]");
-        writeln("\trsb\tr3, r3, #0");
-        writeln("\tsub\tr3, r3, #1");
-        writeln("\tadrl\tr2, ._data_num");
-        writeln("\tadd\tr3, r2, r3, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
         writeln("\tpop\t{ r0 }");
         writeln("\tadrl\tr1, ._data2", symtab.getId(ident));
         writeln("\tadd\tr0, r1, r0, LSL #3");
@@ -374,7 +345,7 @@ class Input : Node {
     }
     override void codegen() {
         writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tbl\tread_number(PLT)");
+        writeln("\tbl\tinput_number(PLT)");
         super.codegen();
     }
 }
@@ -383,7 +354,6 @@ class InputDim : Node {
     private int ident;
     this(int i, Expr e) {
         ident = i;
-        symtab.initializeId(ident);
         symtab.initializeDim(ident);
         left = e;
     }
@@ -401,7 +371,7 @@ class InputDim : Node {
         writeln("\tblgt\truntime_error(PLT)");
         writeln("\tadrl\tr1, ._data", symtab.getId(ident));
         writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tbl\tread_number(PLT)");
+        writeln("\tbl\tinput_number(PLT)");
         super.codegen();
     }
 }
@@ -410,7 +380,6 @@ class InputDim2 : Node {
     private int ident;
     this(int i, Expr idx1, Expr idx2) {
         ident = i;
-        symtab.initializeId(ident);
         symtab.initializeDim2(ident);
         left = new Node(idx1, idx2);
     }
@@ -438,7 +407,7 @@ class InputDim2 : Node {
         writeln("\tmla\tr0, r1, r3, r2"); // offset = idx1 * (sz2 + 1) + idx2
         writeln("\tadrl\tr1, ._data2", symtab.getId(ident));
         writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tbl\tread_number(PLT)");
+        writeln("\tbl\tinput_number(PLT)");
         super.codegen();
     }
 }
@@ -580,16 +549,28 @@ class Next : Node {
 }
 
 class Restore : Node {
+    bool restore, restore_str;
+    this (bool n = true, bool s = true) {
+        restore = n;
+        restore_str = s;
+    }
     override void codegen() {
-        writeln("\tadrl\tr0, ._data_ptr");
-        writeln("\tmov\tr1, #0");
-        writeln("\tstr\tr1, [r0]");
+        if (restore) {
+            writeln("\tadrl\tr0, ._data_ptr");
+            writeln("\tmov\tr1, #0");
+            writeln("\tstr\tr1, [r0]");
+        }
+        if (restore_str) {
+            writeln("\tadrl\tr0, ._data_str_ptr");
+            writeln("\tmov\tr1, #0");
+            writeln("\tstr\tr1, [r0]");
+        }
         super.codegen();
     }
 }
 
 class LetString : Node {
-    private int ident, str_id;
+    private int ident;
     this(int id, StringExpr str) {
         ident = id;
         left = str;
@@ -619,7 +600,7 @@ class InputString : Node {
         writeln("\tldr\tr0, [r0]");
         writeln("\tteq\tr0, #0");
         writeln("\tblne\tfree(PLT)");
-        writeln("\tbl\tread_string(PLT)");
+        writeln("\tbl\tinput_string(PLT)");
         writeln("\tadrl\tr1, .", symtab.getId(ident), "_");
         writeln("\tstr\tr0, [r1]");
         super.codegen();
@@ -631,14 +612,15 @@ class ReadString : Node {
     this(int id) {
         ident = id;
         symtab.initializeString(ident, true);
+        symtab.useData(false, true);
     }
     override void codegen() {
         writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
         writeln("\tldr\tr0, [r0]");
         writeln("\tteq\tr0, #0");
         writeln("\tblne\tfree(PLT)");
-        writeln("\tadrl\tr0, ._data_ptr");
-        writeln("\tadrl\tr1, ._data_max");
+        writeln("\tadrl\tr0, ._data_str_ptr");
+        writeln("\tadrl\tr1, ._data_str_max");
         writeln("\tldr\tr2, [r0]");
         writeln("\tldr\tr3, [r1]");
         writeln("\tcmp\tr2, r3");
@@ -646,19 +628,94 @@ class ReadString : Node {
         writeln("\tmovge\tr1, #", symtab.line & 0xff00);
         writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
         writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._data");
+        writeln("\tadrl\tr1, ._str");
         writeln("\tadd\tr3, r1, r2, LSL #2");
-        writeln("\tldr\tr3, [r3]");
-        writeln("\tcmp\tr3, #0");
-        writeln("\tmovlt\tr0, #9"); // error: string expected
-        writeln("\tmovlt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrlt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tbllt\truntime_error(PLT)");
         writeln("\tadd\tr2, r2, #1");
         writeln("\tstr\tr2, [r0]");
-        writeln("\tadd\tr1, r1, r3");
-        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
-        writeln("\tstr\tr1, [r0]");
+        writeln("\tldr\tr0, [r3]");
+        writeln("\tbl\tstrdup(PLT)");
+        writeln("\tadrl\tr1, .", symtab.getId(ident), "_");
+        writeln("\tstr\tr0, [r1]");
+        super.codegen();
+    }
+}
+
+class ReadDimString : Node {
+    private int ident;
+    this(int id, Expr idx) {
+        ident = id;
+        left = idx;
+        symtab.initializeDimString(ident);
+        symtab.useData(false, true);
+    }
+    override void codegen() {
+        Expr.clearRegs();
+        left.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)left).result);
+        writeln("\tvmov\tr0, s0");
+        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
+        writeln("\tldr\tr1, [r1]");
+        writeln("\tcmp\tr0, r1");
+        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
+        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
+        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tblgt\truntime_error(PLT)");
+        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
+        writeln("\tadd\tr1, r1, r0, LSL #2");
+        writeln("\tpush\t{ r1 }");
+        writeln("\tldr\tr0, [r1]");
+        writeln("\tteq\tr0, #0");
+        writeln("\tblne\tfree(PLT)");
+        writeln("\tadrl\tr0, ._data_str_ptr");
+        writeln("\tadrl\tr1, ._data_str_max");
+        writeln("\tldr\tr2, [r0]");
+        writeln("\tldr\tr3, [r1]");
+        writeln("\tcmp\tr2, r3");
+        writeln("\tmovge\tr0, #1"); // error: out of data
+        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
+        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tblge\truntime_error(PLT)");
+        writeln("\tadrl\tr1, ._str");
+        writeln("\tadd\tr3, r1, r2, LSL #2");
+        writeln("\tadd\tr2, r2, #1");
+        writeln("\tstr\tr2, [r0]");
+        writeln("\tldr\tr0, [r3]");
+        writeln("\tbl\tstrdup(PLT)");
+        writeln("\tpop\t{ r1 }");
+        writeln("\tstr\tr0, [r1]");
+        super.codegen();
+    }
+}
+
+class LetDimString : Node {
+    private int ident;
+    this(int id, Expr idx, StringExpr str) {
+        ident = id;
+        left = new Node(idx, str);
+        symtab.initializeDimString(ident);
+    }
+    override void codegen() {
+        Expr.clearRegs();
+        left.left.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
+        writeln("\tvmov\tr0, s0");
+        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
+        writeln("\tldr\tr1, [r1]");
+        writeln("\tcmp\tr0, r1");
+        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
+        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
+        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
+        writeln("\tblgt\truntime_error(PLT)");
+        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
+        writeln("\tadd\tr1, r1, r0, LSL #2");
+        writeln("\tpush\t{ r1 }");
+        writeln("\tldr\tr0, [r1]");
+        writeln("\tteq\tr0, #0");
+        writeln("\tblne\tfree(PLT)");
+        left.right.codegen();
+        writeln("\tbl\tstrdup(PLT)");
+        writeln("\tpop\t{ r1 }");
+        writeln("\tstr\tr0, [r1]");
         super.codegen();
     }
 }
@@ -792,16 +849,6 @@ class Randomize : Node {
     override void codegen() {
         writeln("\tbl\tclock(PLT)");
         writeln("\tbl\trandom_lcg(PLT)");
-        super.codegen();
-    }
-}
-
-class FnEnd : Node {
-    this() {
-        // empty
-    }
-    override void codegen () {
-        writeln("\tmov\tpc, r14");
         super.codegen();
     }
 }
