@@ -36,7 +36,7 @@ This software is currently under a state of rapid development and should therefo
 
 **Prerequisites:**
 
-* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro above 3.8 may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory.
+* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro (3.8.2.x or above) may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory.
 
 * Recent D compiler, tested with both GNU `gdc` and LLVM `ldc`
 
@@ -58,7 +58,7 @@ This software is currently under a state of rapid development and should therefo
 
 ## Patch for bison
 
-The file `data\skeletons\d.m4` (WinFlexBison) or `/usr/share/bison/skeletons/d.m4` (Linux) needs to be patched so that the generated source file `Parser.d` can be compiled. The patch only needs to be applied once, and this can be achived manually if required by deleting lines which begin with a `-` and replacing them with those which begin with a `+`
+The file `data\skeletons\d.m4` (WinFlexBison) or `/usr/share/bison/skeletons/d.m4` (Linux) needs to be patched so that the generated source file `Parser.d` can be compiled. The patch only needs to be applied once, and this can be achieved manually if required by deleting lines which begin with a `-` and replacing them with those which begin with a `+`
 
 ```
 --- d.m4
@@ -186,6 +186,8 @@ Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is e
 * 2022/05/15: Tag 0.30.1 (hopefully complete) implementation of Basic The Third (1966)
 
 * 2022/06/09: Tag 0.40.1 (almost complete pending code and specification review) implementation of Basic The Fourth (1968)
+
+* 2022/06/11: Tag 0.40.2 (bug fixes and feature improvements) Basic The Fourth update
 
 ## Bugs
 

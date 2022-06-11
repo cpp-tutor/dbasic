@@ -3,7 +3,7 @@
 30 MAT READ L$(N)
 40 FOR I = 1 TO N
 50 FOR J = 1 TO N-I 
-60 IF L$(J) >= L$(J+1) THEN 100
+60 IF L$(J) <= L$(J+1) THEN 100
 70 LET A$ = L$(J)
 80 LET L$(J) = L$(J+1)
 90 LET L$(J+1) = A$

@@ -32,12 +32,12 @@
 %right EXP
 
 %code {
-    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, LetDimString, ReadDimString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize;
+    import Node : Node, Branch, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, LetDimString, ReadDimString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize;
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall, StringExpr, StringVariable, StringConstant, StringIndexed;
     import LexerImpl : LexerImpl;
     import SymbolTable : SymbolTable, Edition;
-    import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr, PrintString, PrintTab;
-    import Mat : MatRead, MatRead2, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput, MatReadString, MatFullPrintDimString;
+    import Print : NewLine, Comma, SemiColon, String, PrintExpr, PrintString, PrintTab;
+    import Mat : MatRead, MatRead2, MatPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput, MatReadString, MatPrintString;
 }
 
 %%
@@ -49,9 +49,9 @@ Stmts   : %empty
 Stmt    : LINENO { $$ = new Line($1); next = next.link($$); }
         // BASIC the First
         | STOP EOL { $$ = new Stop(); next = next.link($$); }
-        | PRINT Print EOL { $$ = new Print($2); next = next.link($$); }
-        | GO TO INTEGER EOL { symtab.registerFlow(cast(ushort)$3); $$ = new Goto(cast(ushort)$3); next = next.link($$); }
-        | GOSUB INTEGER EOL { symtab.registerFlow(cast(ushort)$2); $$ = new GoSub(cast(ushort)$2); next = next.link($$); }
+        | PRINT Print EOL { $$ = new Branch($2); next = next.link($$); }
+        | GO TO INTEGER EOL { $$ = new Goto(cast(ushort)$3); next = next.link($$); }
+        | GOSUB INTEGER EOL { $$ = new GoSub(cast(ushort)$2); next = next.link($$); }
         | LET IDENT ASSIGN Expr EOL { $$ = new Let($2, $4); next = next.link($$); }
         | LET IDENT LPAREN Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim($2, $4, $7); next = next.link($$); }
         | LET IDENT LPAREN Expr COMMA Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim2($2, $4, $6, $9); next = next.link($$); }
@@ -70,21 +70,21 @@ Stmt    : LINENO { $$ = new Line($1); next = next.link($$); }
         | END EOL { symtab.checkReferences(); return YYACCEPT; }
         // BASIC the Second (CardBasic)
         | MAT READ MatRdSq EOL {}
-        | MAT PRINT MatPr EOL { $$ = new MatPrint($3); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT PLUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatAdd($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT MINUS IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatSub($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($4); symtab.initializeMat($6); $$ = new MatMul($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatZerCon($2, $6, $8); next = next.link($$); }
-        | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
-        | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL { symtab.initializeMat($2, true); $$ = new MatIdn($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); $$ = new MatTrn($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { symtab.initializeMat($2, true); symtab.initializeMat($6); if (symtab.edition >= Edition.Fourth) symtab.initializeId(symtab.installId("DET")); $$ = new MatInv($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { symtab.initializeMat($2, true); symtab.initializeMat($8); $$ = new MatScalar($2, $8, $5); next = next.link($$); }
+        | MAT PRINT MatPr EOL { $$ = new Branch($3); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT PLUS IDENT EOL { $$ = new MatAdd($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT MINUS IDENT EOL { $$ = new MatSub($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT TIMES IDENT EOL { $$ = new MatMul($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN EOL { $$ = new MatZerCon($2, $6, $8); next = next.link($$); }
+        | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL { $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL { $$ = new MatIdn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL { $$ = new MatTrn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { $$ = new MatInv($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { $$ = new MatScalar($2, $8, $5); next = next.link($$); }
         // BASIC the Third
-        | MAT IDENT ASSIGN ZER EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 0); next = next.link($$); }
-        | MAT IDENT ASSIGN CON EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 1); next = next.link($$); }
-        | MAT IDENT ASSIGN IDN EOL { symtab.initializeMat($2, true); $$ = new MatZerConIdnDim($2, 2); next = next.link($$); }
-        | MAT INPUT IDENT EOL { symtab.initializeDim($3); symtab.initializeId(symtab.installId("NUM")); $$ = new MatInput($3); next = next.link($$); }
+        | MAT IDENT ASSIGN ZER EOL { $$ = new MatZerConIdnDim($2, 0); next = next.link($$); }
+        | MAT IDENT ASSIGN CON EOL { $$ = new MatZerConIdnDim($2, 1); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN EOL { $$ = new MatZerConIdnDim($2, 2); next = next.link($$); }
+        | MAT INPUT IDENT EOL { $$ = new MatInput($3); next = next.link($$); }
         | RESTORE EOL { $$ = new Restore(); next = next.link($$); }
         | INPUT InputSq EOL {}
         // BASIC the Fourth
@@ -178,14 +178,16 @@ MatPrSq : MatPrSt { $$ = $1; }
         | MatPrSq MatPrSt { $$.linkLast($2); }
         ;
 
-MatPrSt : IDENT COMMA { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
-        | IDENT SEMICOLON { symtab.initializeMat($1); $$ = new MatFullPrint($1, true); }
+MatPrSt : IDENT COMMA { $$ = new MatPrint($1); }
+        | IDENT SEMICOLON { $$ = new MatPrint($1, true); }
+        | IDENT DOLLAR COMMA { $$ = new MatPrintString($1); }
+        | IDENT DOLLAR SEMICOLON { $$ = new MatPrintString($1, true); }
         ;
 
-MatPrEn : IDENT { symtab.initializeMat($1); $$ = new MatFullPrint($1); }
-        | IDENT SEMICOLON { symtab.initializeMat($1); $$ = new MatFullPrint($1, true); }
-        | IDENT DOLLAR { $$ = new MatFullPrintDimString($1); }
-        | IDENT DOLLAR SEMICOLON { $$ = new MatFullPrintDimString($1, true); }
+MatPrEn : IDENT { $$ = new MatPrint($1); }
+        | IDENT SEMICOLON { $$ = new MatPrint($1, true); }
+        | IDENT DOLLAR { $$ = new MatPrintString($1); }
+        | IDENT DOLLAR SEMICOLON { $$ = new MatPrintString($1, true); }
         ;
 
 MatRdSq : MatRead {} // no type for $$

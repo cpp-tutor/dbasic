@@ -55,7 +55,7 @@ class LexerImpl : Lexer {
         tuple( TokenKind.NUMBER,      `[0-9]*\.[0-9]*(E(-)?[0-9]+)?`                                ),
         tuple( TokenKind.INTEGER,     `0|[1-9][0-9]*`                                               ),
         tuple( TokenKind.STRING,      `\"[^"]*\"`                                                   ),
-        tuple( TokenKind.DATASTRING,  `[A-Za-z]([^,])*`                                             ),
+        tuple( TokenKind.DATASTRING,  `[A-Za-z]([^,\n])*`                                           ),
         tuple( TokenKind.ASSIGN,      `=`                                                           ),
         tuple( TokenKind.RELOP,       `<>|<=|<|>=|>`                                                ),
         tuple( TokenKind.PLUS,        `\+`                                                          ),

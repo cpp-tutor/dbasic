@@ -81,28 +81,32 @@ class MatRead2 : Node {
 }
 
 class MatPrint : Node {
-    this(Node mpt) {
-        left = mpt;
-    }
-    override void codegen() {
-        if (left) {
-            left.codegen();
-        }
-        super.codegen();
-    }
-}
-
-class MatFullPrint : Node {
-    private int ident;
+    private int ident, type;
     private bool packed;
     this(int id, bool p = false) {
         ident = id;
         packed = p;
+        //symtab.initializeMat(ident);
+        type = symtab.getMatType(ident);
+        if (type == 0) {
+            symtab.error("NOT A MATRIX");
+        }
     }
     override void codegen() {
-        adrMat(0, "param1", symtab.getId(ident));
-        writeln("\tmov\tr1, #", packed ? "1" : "0");
-        writeln("\tbl\tmat_print(PLT)");
+        if (type == 1) {
+            writeln("\tadrl\tr0, ._data", symtab.getId(ident));
+            writeln("\tadrl\tr1, ._size", symtab.getId(ident));
+            writeln("\tldr\tr1, [r1]");
+            writeln("\tmov\tr2, #", packed ? "1" : "0");
+            writeln("\tmov\tr3, #", symtab.line & 0xff00);
+            writeln("\torr\tr3, r3, #", symtab.line & 0xff);
+            writeln("\tbl\tmat_print(PLT)");
+        }
+        if (type == 2) {
+            adrMat(0, "param1", symtab.getId(ident));
+            writeln("\tmov\tr1, #", packed ? "1" : "0");
+            writeln("\tbl\tmat_print2(PLT)");
+        }
         super.codegen();
     }
 }
@@ -116,6 +120,9 @@ class MatAdd : Node {
         dest = d;
         src1 = s1;
         src2 = s2;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src1);
+        symtab.initializeMat(src2);
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(dest));
@@ -137,6 +144,9 @@ class MatSub : Node {
         dest = d;
         src1 = s1;
         src2 = s2;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src1);
+        symtab.initializeMat(src2);
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(dest));
@@ -152,12 +162,15 @@ class MatSub : Node {
 class MatMul : Node {
     private int dest, src1, src2;
     this(int d, int s1, int s2) {
-        if (d == s1 || d == s2) {
+        if (d == s1 || d == s2 || s1 == s2) {
             symtab.error("BAD RESULT MATRIX");
         }
         dest = d;
         src1 = s1;
         src2 = s2;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src1);
+        symtab.initializeMat(src2);
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(dest));
@@ -179,6 +192,7 @@ class MatZerCon : Node {
         rows = idx1;
         cols = idx2;
         con = c;
+        symtab.initializeMat(ident, true);
     }
     override void codegen() {
         Expr.clearRegs();
@@ -209,6 +223,7 @@ class MatIdn : Node {
     this(int id, Expr sz) {
         ident = id;
         size = sz;
+        symtab.initializeMat(ident, true);
     }
     override void codegen() {
         Expr.clearRegs();
@@ -234,6 +249,8 @@ class MatTrn : Node {
         }
         dest = d;
         src = s;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src);
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(dest));
@@ -253,6 +270,11 @@ class MatInv : Node {
         }
         dest = d;
         src = s;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src);
+        if (symtab.edition >= Edition.Fourth) {
+            symtab.initializeId(symtab.installId("DET"));
+        }
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(dest));
@@ -279,6 +301,8 @@ class MatScalar : Node {
         dest = d;
         src = s;
         left = e;
+        symtab.initializeMat(dest, true);
+        symtab.initializeMat(src);
     }
     override void codegen() {
         Expr.clearRegs();
@@ -298,6 +322,7 @@ class MatZerConIdnDim : Node {
     this(int id, int ty) {
         ident = id;
         type = ty;
+        symtab.initializeMat(ident, true);
     }
     override void codegen() {
         adrMat(0, "result", symtab.getId(ident));
@@ -313,6 +338,8 @@ class MatInput : Node {
     private int ident;
     this(int id) {
         ident = id;
+        symtab.initializeDim(ident);
+        symtab.initializeId(symtab.installId("NUM"));
     }
     override void codegen() {
         writeln("\tadrl\tr0, ._data", symtab.getId(ident));
@@ -331,7 +358,7 @@ class MatReadString : Node {
     this(int id, Expr idx) {
         ident = id;
         elems = idx;
-        symtab.initializeDim(ident); // note: not Dim2
+        symtab.initializeDimString(ident); // note: not Dim2
         symtab.useData(false, true);
     }
     override void codegen() {
@@ -355,13 +382,13 @@ class MatReadString : Node {
     }
 }
 
-class MatFullPrintDimString : Node {
+class MatPrintString : Node {
     private int ident;
     private bool packed;
     this(int id, bool p = false) {
         ident = id;
         packed = p;
-        symtab.initializeDimString(ident, false);
+        symtab.initializeDimString(ident);
     }
     override void codegen() {
         writeln("\tadrl\tr0, ._dataS", symtab.getId(ident));

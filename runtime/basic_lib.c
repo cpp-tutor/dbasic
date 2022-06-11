@@ -26,7 +26,7 @@ struct Data {
 };
 
 unsigned pos = 0, vpos = 0;
-const unsigned TmpBufSz = 16, PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
+const unsigned TmpBufSz = 256, PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
 
 void print_string(const char *s) {
     while (*s) {
@@ -128,7 +128,26 @@ void runtime_error(int err, short line) {
     exit(err);
 }
 
-void mat_print(struct Mat *m, bool packed) {
+void mat_print(double *d, unsigned sz, bool packed, short l) {
+    unsigned n = *d;
+    if (n > sz) {
+        runtime_error(7, l);
+    }
+    for (unsigned s = 0; s != n; ++s) {
+        print_number(*++d);
+        if (packed) {
+            print_semicolon();
+        }
+        else {
+            print_comma();
+        }
+    }
+    if (pos) {
+        print_newline();
+    }
+}
+
+void mat_print2(struct Mat *m, bool packed) {
     double *d = m->data + m->dim->cols + 1;
     print_newline();
     for (unsigned r = 0; r != m->mat->rows; ++r) {
@@ -143,7 +162,7 @@ void mat_print(struct Mat *m, bool packed) {
                 }
             }
         }
-        if (m->mat->cols > 1) {
+        if (pos && m->mat->cols > 1) {
             print_newline();
         }
         else {
@@ -156,7 +175,7 @@ void mat_print(struct Mat *m, bool packed) {
         }
         d += m->dim->cols + 1;
     }
-    if (m->mat->cols == 1) {
+    if (pos && m->mat->cols == 1) {
         print_newline();
     }
 }
@@ -171,9 +190,13 @@ void mat_print_str(char **str, bool packed) {
             print_comma();
         }
     }
+    if (pos) {
+        print_newline();
+    }
 }
 
 void mat_read(double *d, unsigned sz, struct Data *rd, short l) {
+    *d = sz;
     for (unsigned s = 0; s != sz; ++s) {
         if (rd->data_p == rd->data_m) {
             runtime_error(1, l);
@@ -438,9 +461,9 @@ void mat_input(double *d, unsigned *sz, double *num, short l) {
             ++s;
             p = next + 1;
         }
-        sscanf(p, "%lf", ++d);
+        p += sscanf(p, "%lf", ++d);
         ++s;
-        if (s <= *sz) {
+        if (*p == '&' && s <= *sz) {
             print_string("? ");
             fgets(buffer, TmpBufSz, stdin);
             p = buffer;
@@ -501,9 +524,13 @@ char *input_string() {
     if (p) {
         *p = '\0';
     }
+    p = buffer;
+    while (*p == ' ') {
+        ++p;
+    }
     pos = 0;
     ++vpos;
-    return strdup(buffer);
+    return strdup(p);
 }
 
 double random_lcg(unsigned seed) {

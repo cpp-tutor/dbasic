@@ -135,6 +135,17 @@ class SymbolTable {
             }
         }
     }
+    int getMatType(int id) {
+        if (id in mats) {
+            return 2;
+        }
+        else if (id in dims) {
+            return 1;
+        }
+        else {
+            return 0;
+        }
+    }
     void initializeString(int id, bool explicit_str = false) {
         if (id !in strings) {
             if (explicit_str) {

@@ -63,6 +63,20 @@ class Node {
     }
 }
 
+class Branch : Node {
+    this(Node l) {
+        left = l;
+        right = null;
+    }
+    override void codegen() {
+        if (left is null) {
+            throw new Exception("Bad Branch Node");
+        }
+        left.codegen();
+        super.codegen();
+    }
+}
+
 class Line : Node {
     private ushort line;
     this(ushort l) {
@@ -88,6 +102,7 @@ class Goto : Node {
     private ushort line;
     this(ushort l) {
         line = l;
+        symtab.registerFlow(line);
     }
     override void codegen() {
         if (!symtab.referencedLine(line)) {
@@ -102,6 +117,7 @@ class GoSub : Node {
     private ushort line;
     this(ushort l) {
         line = l;
+        symtab.registerFlow(line);
     }
     override void codegen() {
         if (!symtab.referencedLine(line)) {

@@ -343,8 +343,6 @@ class Parser
      that double-quoting is unnecessary unless the string contains an
      apostrophe, a comma, or backslash (other than backslash-backslash).
      YYSTR is taken from yytname.  */
-    /*final void toString(W)(W sink) const
-    if (isOutputRange!(W, char))*/
     final void toString(void delegate(const(char)[]) sink) const
     {
       immutable string[] yy_sname = [
@@ -364,7 +362,6 @@ class Parser
       ];
 
     sink.formattedWrite!"%s"(yy_sname[yycode_]);
-    /*  put(sink, yy_sname[yycode_]); */
     }
   }
 
@@ -511,17 +508,17 @@ this.symtab = symtab;
 
     case 6: /* Stmt: PRINT Print EOL  */
 #line 52 "grammar.y"
-                          { (yyval.Stmt) = new Print(((yystack.valueAt (1)).Print)); next = next.link((yyval.Stmt)); }
+                          { (yyval.Stmt) = new Branch(((yystack.valueAt (1)).Print)); next = next.link((yyval.Stmt)); }
       break;
 
     case 7: /* Stmt: GO TO INTEGER EOL  */
 #line 53 "grammar.y"
-                            { symtab.registerFlow(cast(ushort)((yystack.valueAt (1)).INTEGER)); (yyval.Stmt) = new Goto(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
+                            { (yyval.Stmt) = new Goto(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
       break;
 
     case 8: /* Stmt: GOSUB INTEGER EOL  */
 #line 54 "grammar.y"
-                            { symtab.registerFlow(cast(ushort)((yystack.valueAt (1)).INTEGER)); (yyval.Stmt) = new GoSub(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
+                            { (yyval.Stmt) = new GoSub(cast(ushort)((yystack.valueAt (1)).INTEGER)); next = next.link((yyval.Stmt)); }
       break;
 
     case 9: /* Stmt: LET IDENT ASSIGN Expr EOL  */
@@ -611,72 +608,72 @@ this.symtab = symtab;
 
     case 26: /* Stmt: MAT PRINT MatPr EOL  */
 #line 73 "grammar.y"
-                              { (yyval.Stmt) = new MatPrint(((yystack.valueAt (1)).MatPr)); next = next.link((yyval.Stmt)); }
+                              { (yyval.Stmt) = new Branch(((yystack.valueAt (1)).MatPr)); next = next.link((yyval.Stmt)); }
       break;
 
     case 27: /* Stmt: MAT IDENT ASSIGN IDENT PLUS IDENT EOL  */
 #line 74 "grammar.y"
-                                                { symtab.initializeMat(((yystack.valueAt (5)).IDENT), true); symtab.initializeMat(((yystack.valueAt (3)).IDENT)); symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.Stmt) = new MatAdd(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                { (yyval.Stmt) = new MatAdd(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 28: /* Stmt: MAT IDENT ASSIGN IDENT MINUS IDENT EOL  */
 #line 75 "grammar.y"
-                                                 { symtab.initializeMat(((yystack.valueAt (5)).IDENT), true); symtab.initializeMat(((yystack.valueAt (3)).IDENT)); symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.Stmt) = new MatSub(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                 { (yyval.Stmt) = new MatSub(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 29: /* Stmt: MAT IDENT ASSIGN IDENT TIMES IDENT EOL  */
 #line 76 "grammar.y"
-                                                 { symtab.initializeMat(((yystack.valueAt (5)).IDENT), true); symtab.initializeMat(((yystack.valueAt (3)).IDENT)); symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.Stmt) = new MatMul(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                 { (yyval.Stmt) = new MatMul(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 30: /* Stmt: MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN EOL  */
 #line 77 "grammar.y"
-                                                                 { symtab.initializeMat(((yystack.valueAt (8)).IDENT), true); (yyval.Stmt) = new MatZerCon(((yystack.valueAt (8)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (2)).Expr)); next = next.link((yyval.Stmt)); }
+                                                                 { (yyval.Stmt) = new MatZerCon(((yystack.valueAt (8)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (2)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
     case 31: /* Stmt: MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL  */
 #line 78 "grammar.y"
-                                                                 { symtab.initializeMat(((yystack.valueAt (8)).IDENT), true); (yyval.Stmt) = new MatZerCon(((yystack.valueAt (8)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (2)).Expr), true); next = next.link((yyval.Stmt)); }
+                                                                 { (yyval.Stmt) = new MatZerCon(((yystack.valueAt (8)).IDENT), ((yystack.valueAt (4)).Expr), ((yystack.valueAt (2)).Expr), true); next = next.link((yyval.Stmt)); }
       break;
 
     case 32: /* Stmt: MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL  */
 #line 79 "grammar.y"
-                                                      { symtab.initializeMat(((yystack.valueAt (6)).IDENT), true); (yyval.Stmt) = new MatIdn(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).Expr)); next = next.link((yyval.Stmt)); }
+                                                      { (yyval.Stmt) = new MatIdn(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
     case 33: /* Stmt: MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL  */
 #line 80 "grammar.y"
-                                                       { symtab.initializeMat(((yystack.valueAt (6)).IDENT), true); symtab.initializeMat(((yystack.valueAt (2)).IDENT)); (yyval.Stmt) = new MatTrn(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                       { (yyval.Stmt) = new MatTrn(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 34: /* Stmt: MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL  */
 #line 81 "grammar.y"
-                                                       { symtab.initializeMat(((yystack.valueAt (6)).IDENT), true); symtab.initializeMat(((yystack.valueAt (2)).IDENT)); if (symtab.edition >= Edition.Fourth) symtab.initializeId(symtab.installId("DET")); (yyval.Stmt) = new MatInv(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
+                                                       { (yyval.Stmt) = new MatInv(((yystack.valueAt (6)).IDENT), ((yystack.valueAt (2)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 35: /* Stmt: MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL  */
 #line 82 "grammar.y"
-                                                              { symtab.initializeMat(((yystack.valueAt (7)).IDENT), true); symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.Stmt) = new MatScalar(((yystack.valueAt (7)).IDENT), ((yystack.valueAt (1)).IDENT), ((yystack.valueAt (4)).Expr)); next = next.link((yyval.Stmt)); }
+                                                              { (yyval.Stmt) = new MatScalar(((yystack.valueAt (7)).IDENT), ((yystack.valueAt (1)).IDENT), ((yystack.valueAt (4)).Expr)); next = next.link((yyval.Stmt)); }
       break;
 
     case 36: /* Stmt: MAT IDENT ASSIGN ZER EOL  */
 #line 84 "grammar.y"
-                                   { symtab.initializeMat(((yystack.valueAt (3)).IDENT), true); (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 0); next = next.link((yyval.Stmt)); }
+                                   { (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 0); next = next.link((yyval.Stmt)); }
       break;
 
     case 37: /* Stmt: MAT IDENT ASSIGN CON EOL  */
 #line 85 "grammar.y"
-                                   { symtab.initializeMat(((yystack.valueAt (3)).IDENT), true); (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 1); next = next.link((yyval.Stmt)); }
+                                   { (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 1); next = next.link((yyval.Stmt)); }
       break;
 
     case 38: /* Stmt: MAT IDENT ASSIGN IDN EOL  */
 #line 86 "grammar.y"
-                                   { symtab.initializeMat(((yystack.valueAt (3)).IDENT), true); (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 2); next = next.link((yyval.Stmt)); }
+                                   { (yyval.Stmt) = new MatZerConIdnDim(((yystack.valueAt (3)).IDENT), 2); next = next.link((yyval.Stmt)); }
       break;
 
     case 39: /* Stmt: MAT INPUT IDENT EOL  */
 #line 87 "grammar.y"
-                              { symtab.initializeDim(((yystack.valueAt (1)).IDENT)); symtab.initializeId(symtab.installId("NUM")); (yyval.Stmt) = new MatInput(((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
+                              { (yyval.Stmt) = new MatInput(((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Stmt)); }
       break;
 
     case 40: /* Stmt: RESTORE EOL  */
@@ -981,216 +978,226 @@ this.symtab = symtab;
 
     case 100: /* MatPrSt: IDENT COMMA  */
 #line 181 "grammar.y"
-                      { symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.MatPrSt) = new MatFullPrint(((yystack.valueAt (1)).IDENT)); }
+                      { (yyval.MatPrSt) = new MatPrint(((yystack.valueAt (1)).IDENT)); }
       break;
 
     case 101: /* MatPrSt: IDENT SEMICOLON  */
 #line 182 "grammar.y"
-                          { symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.MatPrSt) = new MatFullPrint(((yystack.valueAt (1)).IDENT), true); }
+                          { (yyval.MatPrSt) = new MatPrint(((yystack.valueAt (1)).IDENT), true); }
       break;
 
-    case 102: /* MatPrEn: IDENT  */
-#line 185 "grammar.y"
-                { symtab.initializeMat(((yystack.valueAt (0)).IDENT)); (yyval.MatPrEn) = new MatFullPrint(((yystack.valueAt (0)).IDENT)); }
+    case 102: /* MatPrSt: IDENT DOLLAR COMMA  */
+#line 183 "grammar.y"
+                             { (yyval.MatPrSt) = new MatPrintString(((yystack.valueAt (2)).IDENT)); }
       break;
 
-    case 103: /* MatPrEn: IDENT SEMICOLON  */
-#line 186 "grammar.y"
-                          { symtab.initializeMat(((yystack.valueAt (1)).IDENT)); (yyval.MatPrEn) = new MatFullPrint(((yystack.valueAt (1)).IDENT), true); }
+    case 103: /* MatPrSt: IDENT DOLLAR SEMICOLON  */
+#line 184 "grammar.y"
+                                 { (yyval.MatPrSt) = new MatPrintString(((yystack.valueAt (2)).IDENT), true); }
       break;
 
-    case 104: /* MatPrEn: IDENT DOLLAR  */
+    case 104: /* MatPrEn: IDENT  */
 #line 187 "grammar.y"
-                       { (yyval.MatPrEn) = new MatFullPrintDimString(((yystack.valueAt (1)).IDENT)); }
+                { (yyval.MatPrEn) = new MatPrint(((yystack.valueAt (0)).IDENT)); }
       break;
 
-    case 105: /* MatPrEn: IDENT DOLLAR SEMICOLON  */
+    case 105: /* MatPrEn: IDENT SEMICOLON  */
 #line 188 "grammar.y"
-                                 { (yyval.MatPrEn) = new MatFullPrintDimString(((yystack.valueAt (2)).IDENT), true); }
+                          { (yyval.MatPrEn) = new MatPrint(((yystack.valueAt (1)).IDENT), true); }
       break;
 
-    case 106: /* MatRdSq: MatRead  */
-#line 191 "grammar.y"
+    case 106: /* MatPrEn: IDENT DOLLAR  */
+#line 189 "grammar.y"
+                       { (yyval.MatPrEn) = new MatPrintString(((yystack.valueAt (1)).IDENT)); }
+      break;
+
+    case 107: /* MatPrEn: IDENT DOLLAR SEMICOLON  */
+#line 190 "grammar.y"
+                                 { (yyval.MatPrEn) = new MatPrintString(((yystack.valueAt (2)).IDENT), true); }
+      break;
+
+    case 108: /* MatRdSq: MatRead  */
+#line 193 "grammar.y"
                   {}
       break;
 
-    case 107: /* MatRdSq: MatRdSq COMMA MatRead  */
-#line 192 "grammar.y"
+    case 109: /* MatRdSq: MatRdSq COMMA MatRead  */
+#line 194 "grammar.y"
                                 {}
       break;
 
-    case 108: /* MatRead: IDENT LPAREN Expr RPAREN  */
-#line 195 "grammar.y"
+    case 110: /* MatRead: IDENT LPAREN Expr RPAREN  */
+#line 197 "grammar.y"
                                    { (yyval.MatRead) = new MatRead(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.MatRead)); }
       break;
 
-    case 109: /* MatRead: IDENT LPAREN Expr COMMA Expr RPAREN  */
-#line 196 "grammar.y"
+    case 111: /* MatRead: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 198 "grammar.y"
                                               { (yyval.MatRead) = new MatRead2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.MatRead)); }
       break;
 
-    case 110: /* MatRead: IDENT DOLLAR LPAREN Expr RPAREN  */
-#line 197 "grammar.y"
+    case 112: /* MatRead: IDENT DOLLAR LPAREN Expr RPAREN  */
+#line 199 "grammar.y"
                                           { (yyval.MatRead) = new MatReadString(((yystack.valueAt (4)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.MatRead)); }
       break;
 
-    case 111: /* InputSq: Input  */
-#line 200 "grammar.y"
+    case 113: /* InputSq: Input  */
+#line 202 "grammar.y"
                 {}
       break;
 
-    case 112: /* InputSq: InputSq COMMA Input  */
-#line 201 "grammar.y"
+    case 114: /* InputSq: InputSq COMMA Input  */
+#line 203 "grammar.y"
                               {}
       break;
 
-    case 113: /* Input: IDENT  */
-#line 204 "grammar.y"
+    case 115: /* Input: IDENT  */
+#line 206 "grammar.y"
                 { (yyval.Input) = new Input(((yystack.valueAt (0)).IDENT)); next = next.link((yyval.Input)); }
       break;
 
-    case 114: /* Input: IDENT LPAREN Expr RPAREN  */
-#line 205 "grammar.y"
+    case 116: /* Input: IDENT LPAREN Expr RPAREN  */
+#line 207 "grammar.y"
                                    { (yyval.Input) = new InputDim(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Input)); }
       break;
 
-    case 115: /* Input: IDENT LPAREN Expr COMMA Expr RPAREN  */
-#line 206 "grammar.y"
+    case 117: /* Input: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 208 "grammar.y"
                                               { (yyval.Input) = new InputDim2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); next = next.link((yyval.Input)); }
       break;
 
-    case 116: /* Input: IDENT DOLLAR  */
-#line 207 "grammar.y"
+    case 118: /* Input: IDENT DOLLAR  */
+#line 209 "grammar.y"
                        { (yyval.Input) = new InputString(((yystack.valueAt (1)).IDENT)); next = next.link((yyval.Input)); }
       break;
 
-    case 117: /* Expr: NUMBER  */
-#line 210 "grammar.y"
+    case 119: /* Expr: NUMBER  */
+#line 212 "grammar.y"
                  { (yyval.Expr) = new Constant(symtab.installConstant(((yystack.valueAt (0)).NUMBER))); }
       break;
 
-    case 118: /* Expr: INTEGER  */
-#line 211 "grammar.y"
+    case 120: /* Expr: INTEGER  */
+#line 213 "grammar.y"
                   { (yyval.Expr) = new Constant(symtab.installConstant(((yystack.valueAt (0)).INTEGER))); }
       break;
 
-    case 119: /* Expr: IDENT  */
-#line 212 "grammar.y"
+    case 121: /* Expr: IDENT  */
+#line 214 "grammar.y"
                 { (yyval.Expr) = new Identifier(((yystack.valueAt (0)).IDENT)); }
       break;
 
-    case 120: /* Expr: MATHFN Expr RPAREN  */
-#line 213 "grammar.y"
+    case 122: /* Expr: MATHFN Expr RPAREN  */
+#line 215 "grammar.y"
                              { (yyval.Expr) = new MathFn(((yystack.valueAt (2)).MATHFN), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 121: /* Expr: FN IDENT LPAREN ExprSq RPAREN  */
-#line 214 "grammar.y"
+    case 123: /* Expr: FN IDENT LPAREN ExprSq RPAREN  */
+#line 216 "grammar.y"
                                         { (yyval.Expr) = new FnCall(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).ExprSq)); }
       break;
 
-    case 122: /* Expr: FN IDENT  */
-#line 215 "grammar.y"
+    case 124: /* Expr: FN IDENT  */
+#line 217 "grammar.y"
                    { (yyval.Expr) = (symtab.edition >= Edition.Fourth) ? new Identifier(symtab.installId("FN" ~ symtab.getId(((yystack.valueAt (0)).IDENT)))) : new FnCall(((yystack.valueAt (0)).IDENT), new Expr[0]); }
       break;
 
-    case 123: /* Expr: IDENT LPAREN Expr RPAREN  */
-#line 216 "grammar.y"
+    case 125: /* Expr: IDENT LPAREN Expr RPAREN  */
+#line 218 "grammar.y"
                                    { (yyval.Expr) = new Dim(((yystack.valueAt (3)).IDENT), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 124: /* Expr: IDENT LPAREN Expr COMMA Expr RPAREN  */
-#line 217 "grammar.y"
+    case 126: /* Expr: IDENT LPAREN Expr COMMA Expr RPAREN  */
+#line 219 "grammar.y"
                                               { (yyval.Expr) = new Dim2(((yystack.valueAt (5)).IDENT), ((yystack.valueAt (3)).Expr), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 125: /* Expr: Expr PLUS Expr  */
-#line 218 "grammar.y"
+    case 127: /* Expr: Expr PLUS Expr  */
+#line 220 "grammar.y"
                          { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Add, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 126: /* Expr: Expr MINUS Expr  */
-#line 219 "grammar.y"
+    case 128: /* Expr: Expr MINUS Expr  */
+#line 221 "grammar.y"
                           { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Sub, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 127: /* Expr: Expr TIMES Expr  */
-#line 220 "grammar.y"
+    case 129: /* Expr: Expr TIMES Expr  */
+#line 222 "grammar.y"
                           { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Mul, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 128: /* Expr: Expr DIVIDE Expr  */
-#line 221 "grammar.y"
+    case 130: /* Expr: Expr DIVIDE Expr  */
+#line 223 "grammar.y"
                            { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Div, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 129: /* Expr: Expr EXP Expr  */
-#line 222 "grammar.y"
+    case 131: /* Expr: Expr EXP Expr  */
+#line 224 "grammar.y"
                         { (yyval.Expr) = new Operation(((yystack.valueAt (2)).Expr), Op.Exp, ((yystack.valueAt (0)).Expr)); }
       break;
 
-    case 130: /* Expr: MINUS Expr  */
-#line 223 "grammar.y"
+    case 132: /* Expr: MINUS Expr  */
+#line 225 "grammar.y"
                                   { (yyval.Expr) = new Operation(((yystack.valueAt (0)).Expr), Op.Neg); }
       break;
 
-    case 131: /* Expr: LPAREN Expr RPAREN  */
-#line 224 "grammar.y"
+    case 133: /* Expr: LPAREN Expr RPAREN  */
+#line 226 "grammar.y"
                              { (yyval.Expr) = ((yystack.valueAt (1)).Expr); }
       break;
 
-    case 132: /* Expr: DET  */
-#line 225 "grammar.y"
+    case 134: /* Expr: DET  */
+#line 227 "grammar.y"
               { (yyval.Expr) = new Identifier(symtab.installId("DET")); }
       break;
 
-    case 133: /* Expr: NUM  */
-#line 226 "grammar.y"
+    case 135: /* Expr: NUM  */
+#line 228 "grammar.y"
               { (yyval.Expr) = new Identifier(symtab.installId("NUM")); }
       break;
 
-    case 134: /* Expr: RND  */
-#line 227 "grammar.y"
+    case 136: /* Expr: RND  */
+#line 229 "grammar.y"
               { (yyval.Expr) = new MathFn("RND", null); }
       break;
 
-    case 135: /* StrExpr: IDENT DOLLAR  */
-#line 230 "grammar.y"
+    case 137: /* StrExpr: IDENT DOLLAR  */
+#line 232 "grammar.y"
                        { (yyval.StrExpr) = new StringVariable(((yystack.valueAt (1)).IDENT)); }
       break;
 
-    case 136: /* StrExpr: IDENT DOLLAR LPAREN Expr RPAREN  */
-#line 231 "grammar.y"
+    case 138: /* StrExpr: IDENT DOLLAR LPAREN Expr RPAREN  */
+#line 233 "grammar.y"
                                           { (yyval.StrExpr) = new StringIndexed(((yystack.valueAt (4)).IDENT), ((yystack.valueAt (1)).Expr)); }
       break;
 
-    case 137: /* StrExpr: STRING  */
-#line 232 "grammar.y"
+    case 139: /* StrExpr: STRING  */
+#line 234 "grammar.y"
                  { (yyval.StrExpr) = new StringConstant(((yystack.valueAt (0)).STRING)); }
       break;
 
-    case 138: /* GotoThen: GO TO  */
-#line 235 "grammar.y"
+    case 140: /* GotoThen: GO TO  */
+#line 237 "grammar.y"
                 {}
       break;
 
-    case 139: /* GotoThen: THEN  */
-#line 236 "grammar.y"
+    case 141: /* GotoThen: THEN  */
+#line 238 "grammar.y"
                {}
       break;
 
-    case 140: /* GotoSq: INTEGER  */
-#line 239 "grammar.y"
+    case 142: /* GotoSq: INTEGER  */
+#line 241 "grammar.y"
                   { int[] l; (yyval.GotoSq) = l; (yyval.GotoSq) ~= ((yystack.valueAt (0)).INTEGER); symtab.registerFlow(cast(ushort)((yystack.valueAt (0)).INTEGER)); }
       break;
 
-    case 141: /* GotoSq: GotoSq COMMA INTEGER  */
-#line 240 "grammar.y"
+    case 143: /* GotoSq: GotoSq COMMA INTEGER  */
+#line 242 "grammar.y"
                                { (yyval.GotoSq) ~= ((yystack.valueAt (0)).INTEGER); symtab.registerFlow(cast(ushort)((yystack.valueAt (0)).INTEGER)); }
       break;
 
 
-#line 1194 "Parser.d"
+#line 1201 "Parser.d"
 
       default: break;
     }
@@ -1577,47 +1584,48 @@ this.symtab = symtab;
   /* YYTABLE[YYPACT[STATE-NUM]].  What to do in state STATE-NUM.  If
      positive, shift that token.  If negative, reduce the rule which
      number is the opposite.  If YYTABLE_NINF_, syntax error.  */
-  private static immutable short yytable_ninf_ = -104;
+  private static immutable short yytable_ninf_ = -108;
 
     /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
      STATE-NUM.  */
 private static immutable short[] yypact_ =
 [
-     -42,   252,   -42,   -42,    -3,     0,     8,     1,    19,    57,
+     -42,   253,   -42,   -42,    -3,     0,     8,     1,    19,    57,
        4,    28,    10,    17,    25,    67,    32,    75,    38,    15,
       16,    96,   104,    56,   103,   119,   -42,   100,   122,   -34,
       37,   -42,   -42,   -42,   -42,   -42,    40,    55,   -42,   156,
      119,   -42,   -42,   119,   133,   -42,   -42,    90,   -42,   119,
-     119,    88,     1,   107,   -42,   356,   101,   160,   -42,    -7,
-       2,   139,   131,   -42,   -42,   191,   143,   -42,   161,    69,
-     -42,   -42,   200,   208,   245,   246,   195,   -42,   247,   184,
-     106,   -42,   -29,   -42,   248,   240,    21,   119,   119,    20,
-     259,   119,   255,     0,   -42,   -42,   -42,     8,   -42,   119,
-     256,   356,   -41,   264,   119,   250,   272,   -42,   107,   -42,
+     119,    88,     1,   126,   -42,   357,   101,   183,   -42,    -7,
+       2,   150,   143,   -42,   -42,   241,   188,   -42,   161,    69,
+     -42,   -42,   205,   247,   250,   289,   248,   -42,   249,   184,
+     106,   -42,   -29,   -42,   269,   160,    21,   119,   119,    20,
+     260,   119,   256,     0,   -42,   -42,   -42,     8,   -42,   119,
+     257,   357,   -41,   265,   119,   251,   273,   -42,   126,   -42,
      -42,   -42,   119,   119,   119,   119,   119,   -42,   -42,   -42,
-     268,   119,   119,   223,   223,   119,   -42,    24,   -42,   346,
-     313,    75,   -42,    95,   207,   123,   -42,   149,   320,   245,
-     -42,   -42,   333,   -42,   -42,   119,   -42,    96,   -42,   398,
-     372,   -42,   377,   -42,   407,   381,   135,   223,   119,   119,
-     154,   119,   -42,   -42,   167,   119,   -42,   -42,   119,   258,
-     -42,    54,    54,   272,   272,   272,   -42,    76,   105,   360,
-     384,   385,   112,   119,   418,   -42,   230,   424,   -42,   162,
-     -24,    -4,    35,   379,   380,   119,   119,   382,   208,   -42,
-     386,   -42,   375,   -42,   -42,   -42,   -42,   193,   -42,   387,
-     445,   -42,   -42,   125,   -42,   412,   119,   392,   265,   389,
-     -42,   119,   271,   -42,   119,   278,   235,   177,   402,   459,
-     460,   467,   468,   119,   397,   -42,   238,   -42,   475,   436,
-     478,   486,   491,   119,   -42,   119,   -42,   119,   -42,   493,
-     494,   284,   234,   119,   -42,   -42,   -42,   119,   441,   442,
-     495,   -42,   119,   291,   -42,   457,   -42,   297,   -42,   304,
-     -42,   -42,   119,   -42,   446,   447,   448,   449,   129,   -42,
-      -8,   499,   455,   -42,   451,   452,   453,   362,   373,   310,
-     461,   462,   454,   -42,   119,   317,   323,   -42,   -42,   -42,
-     405,   471,   223,   -42,   -42,   177,   -42,   -42,   -42,   -42,
-     119,   -42,   119,   -42,   -42,   -42,   -42,   -42,   -42,   119,
-     119,   463,   464,   465,   508,   330,   -42,   -42,   -42,   119,
-     466,   413,   421,   336,   343,   -42,   -42,   -42,   469,   -42,
-     429,   -42,   -42,   -42,   470,   472,   -42,   -42,   -42,   -42
+     295,   119,   119,   223,   223,   119,   -42,    24,   -42,   360,
+     327,    75,   -42,    95,   208,   123,   -42,   149,   334,   250,
+     -42,   -42,   345,   -42,   -42,   119,   -42,    96,   -42,   401,
+     378,   -42,   383,   -42,   408,   382,   135,   223,   119,   119,
+     154,   119,   -42,   -42,   167,   119,   -42,   -42,   119,   259,
+     -42,    54,    54,   273,   273,   273,   -42,    76,   105,   362,
+     386,   392,   112,   119,   427,   -42,   231,   426,   -42,   162,
+     -24,    -4,    35,   381,   391,   119,   119,   399,   247,   -42,
+     110,   -42,   376,   -42,   -42,   -42,   -42,   194,   -42,   388,
+     431,   -42,   -42,   125,   -42,   405,   119,   400,   266,   390,
+     -42,   119,   272,   -42,   119,   279,   236,   177,   403,   460,
+     461,   468,   469,   119,   398,   -42,   239,   -42,   476,   437,
+     479,   487,   492,   119,   -42,   119,   -42,   119,   -42,   494,
+     495,   285,   235,   119,   -42,   -42,   442,   -42,   119,   443,
+     444,   497,   -42,   119,   292,   -42,   459,   -42,   298,   -42,
+     305,   -42,   -42,   119,   -42,   447,   448,   449,   450,   129,
+     -42,    -8,   505,   457,   -42,   453,   454,   455,   363,   374,
+     311,   462,   463,   456,   -42,   119,   318,   324,   -42,   -42,
+     -42,   406,   472,   223,   -42,   -42,   177,   -42,   -42,   -42,
+     -42,   119,   -42,   119,   -42,   -42,   -42,   -42,   -42,   -42,
+     119,   119,   464,   465,   466,   510,   331,   -42,   -42,   -42,
+     119,   467,   414,   422,   337,   344,   -42,   -42,   -42,   470,
+     -42,   430,   -42,   -42,   -42,   471,   473,   -42,   -42,   -42,
+     -42
 ];
 
   /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1628,46 +1636,47 @@ private static immutable short[] yydefact_ =
        2,     0,     1,     4,     0,     0,     0,    56,     0,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
        0,     0,     0,     0,     0,     0,     3,     0,     0,    82,
-       0,    80,    78,    74,    79,    75,     0,     0,    72,   119,
-     137,   118,   117,     0,     0,   132,   133,     0,   134,     0,
-       0,     0,     0,    59,    57,    66,    68,     0,   137,     0,
+       0,    80,    78,    74,    79,    75,     0,     0,    72,   121,
+     139,   120,   119,     0,     0,   134,   135,     0,   136,     0,
+       0,     0,     0,    59,    57,    66,    68,     0,   139,     0,
        0,     0,     0,    24,     5,     0,     0,    22,     0,     0,
-      87,    23,     0,     0,     0,     0,     0,    40,     0,   113,
-       0,   111,     0,    49,     0,   119,     0,     0,     0,     0,
+      87,    23,     0,     0,     0,     0,     0,    40,     0,   115,
+       0,   113,     0,    49,     0,   121,     0,     0,     0,     0,
        0,     0,    85,     0,    18,    76,    77,     0,    17,     0,
-     135,    67,     0,   122,     0,     0,   130,     6,    60,    58,
+     137,    67,     0,   124,     0,     0,   132,     6,    60,    58,
       70,    71,     0,     0,     0,     0,     0,    61,    64,    63,
        0,     0,     0,     0,     0,     0,    16,     0,     8,     0,
-       0,     0,    19,     0,     0,     0,   106,   102,     0,     0,
-      98,    96,     0,    51,    50,     0,   116,     0,    41,     0,
-       0,    55,     0,   139,     0,     0,     0,     0,     0,     0,
-       0,     0,    81,    73,     0,     0,    62,   120,     0,     0,
-     131,   125,   126,   127,   128,   129,     7,     0,     0,     0,
+       0,     0,    19,     0,     0,     0,   108,   104,     0,     0,
+      98,    96,     0,    51,    50,     0,   118,     0,    41,     0,
+       0,    55,     0,   141,     0,     0,     0,     0,     0,     0,
+       0,     0,    81,    73,     0,     0,    62,   122,     0,     0,
+     133,   127,   128,   129,   130,   131,     7,     0,     0,     0,
        0,     0,     0,     0,     0,    53,     0,     0,    88,     0,
        0,     0,     0,     0,     0,     0,     0,     0,     0,    25,
-     104,   100,   101,    26,    99,    97,    39,     0,   112,     0,
-       0,   138,   140,     0,     9,     0,     0,     0,     0,     0,
-      83,     0,     0,   123,     0,     0,     0,    94,     0,     0,
+     106,   100,   101,    26,    99,    97,    39,     0,   114,     0,
+       0,   140,   142,     0,     9,     0,     0,     0,     0,     0,
+      83,     0,     0,   125,     0,     0,     0,    94,     0,     0,
        0,     0,     0,     0,     0,    92,     0,    89,     0,     0,
        0,     0,     0,     0,    36,     0,    37,     0,    38,     0,
-       0,     0,     0,     0,   107,   105,   114,     0,     0,     0,
-       0,    46,     0,     0,    42,     0,    54,     0,    86,     0,
-     136,   121,     0,    65,     0,     0,     0,     0,     0,    21,
-       0,     0,     0,    91,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,   108,     0,     0,     0,    48,    47,   141,
-       0,     0,     0,    84,   124,    95,    12,    13,    44,    45,
-       0,    15,     0,    52,    93,    90,    27,    28,    29,     0,
-       0,     0,     0,     0,     0,     0,   110,   115,    10,     0,
-       0,     0,     0,     0,     0,    32,    33,    34,     0,   109,
-       0,    43,    14,    20,     0,     0,    35,    11,    30,    31
+       0,     0,     0,     0,   109,   102,   103,   116,     0,     0,
+       0,     0,    46,     0,     0,    42,     0,    54,     0,    86,
+       0,   138,   123,     0,    65,     0,     0,     0,     0,     0,
+      21,     0,     0,     0,    91,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,   110,     0,     0,     0,    48,    47,
+     143,     0,     0,     0,    84,   126,    95,    12,    13,    44,
+      45,     0,    15,     0,    52,    93,    90,    27,    28,    29,
+       0,     0,     0,     0,     0,     0,     0,   112,   117,    10,
+       0,     0,     0,     0,     0,     0,    32,    33,    34,     0,
+     111,     0,    43,    14,    20,     0,     0,    35,    11,    30,
+      31
 ];
 
   /* YYPGOTO[NTERM-NUM].  */
 private static immutable short[] yypgoto_ =
 [
-     -42,   -42,   -42,   -42,   -42,   474,   480,   417,   -42,   423,
-     -42,   428,   -42,   383,   -42,   -42,   -42,   -42,   388,   391,
-     -42,   335,   -42,   390,    -9,    -6,   -42,   -42
+     -42,   -42,   -42,   -42,   -42,   475,   481,   418,   -42,   423,
+     -42,   429,   -42,   397,   -42,   -42,   -42,   -42,   395,   396,
+     -42,   333,   -42,   389,    -9,    -6,   -42,   -42
 ];
 
   /* YYDEFGOTO[NTERM-NUM].  */
@@ -1686,9 +1695,9 @@ private static immutable short[] yytable_ =
       59,   121,    27,    60,   149,    29,    39,    40,    41,    61,
      123,    42,    43,   167,    32,    33,    86,    34,    35,    91,
       72,    92,   112,   113,   114,   115,   150,   116,    73,   243,
-      74,   101,    28,    62,   102,   244,    44,   152,   312,   122,
+      74,   101,    28,    62,   102,   244,    44,   152,   313,   122,
      105,   106,    45,    46,    75,    47,    48,    95,   124,   245,
-      96,   313,    57,   153,    49,   246,   112,   113,   114,   115,
+      96,   314,    57,   153,    49,   246,   112,   113,   114,   115,
       65,   116,    39,    58,    41,    50,   157,    42,    43,    63,
      183,    76,    36,   158,    66,    77,    64,   184,   155,   156,
       68,    78,   160,   185,   112,   113,   114,   115,   247,   116,
@@ -1699,44 +1708,44 @@ private static immutable short[] yytable_ =
       43,   190,   191,   192,   193,   194,   207,   230,   103,   112,
      113,   114,   115,   104,   116,   233,    87,   107,   195,   218,
      219,   217,   222,    88,    44,    89,   225,   118,   119,   227,
-      45,    46,   147,   310,    48,   148,   -69,   120,   112,   113,
+      45,    46,   147,   311,    48,   148,   255,   256,   112,   113,
      114,   115,    49,   116,   234,   112,   113,   114,   115,   198,
-     116,   260,   199,    50,   261,   125,   251,   252,   311,   215,
-     126,   216,   112,   113,   114,   115,   127,   116,   112,   113,
-     114,   115,   128,   116,   200,   201,   202,   263,   220,    99,
-     221,   100,   267,   134,   129,   269,   130,   112,   113,   114,
-     115,   223,   116,   224,   278,   240,   241,   242,   179,    58,
-     112,   113,   114,   115,   287,   116,   288,   145,   289,   146,
-     112,   113,   114,   115,   295,   116,   133,   256,   296,   257,
-     137,   142,     2,   300,   143,     3,   112,   113,   114,   115,
-     196,   116,   197,   305,     4,     5,     6,     7,     8,     9,
-      10,    11,    12,    13,    14,    15,    16,    17,    18,    19,
-      20,    21,    22,    23,   237,   325,   238,    24,   293,   271,
-     294,   272,   280,    99,   281,    25,   330,   112,   113,   114,
-     115,   331,   116,   332,   170,   159,   144,   151,   161,   165,
-     333,   334,   228,   112,   113,   114,   115,   168,   116,   265,
-     340,   112,   113,   114,   115,   268,   116,   176,   112,   113,
-     114,   115,   270,   116,   112,   113,   114,   115,   292,   116,
-     116,   112,   113,   114,   115,   301,   116,   112,   113,   114,
-     115,   303,   116,   186,   112,   113,   114,   115,   304,   116,
-     112,   113,   114,   115,   321,   116,   187,   112,   113,   114,
-     115,   326,   116,   112,   113,   114,   115,   327,   116,   203,
-     112,   113,   114,   115,   339,   116,   112,   113,   114,   115,
-     344,   116,   206,   112,   113,   114,   115,   345,   116,   112,
-     113,   114,   115,   209,   116,   210,   112,   113,   114,   115,
-     211,   116,   110,   111,   212,   100,   231,   232,   319,   112,
-     113,   114,   115,   235,   116,   112,   113,   114,   115,   320,
-     116,   239,   249,   250,  -103,   253,   112,   113,   114,   115,
-     214,   116,   258,   255,   112,   113,   114,   115,   266,   116,
-     259,   264,   112,   113,   114,   115,   279,   116,   262,   273,
-     112,   113,   114,   115,   328,   116,   274,   275,   112,   113,
-     114,   115,   342,   116,   276,   277,   112,   113,   114,   115,
-     343,   116,   282,   284,   112,   113,   114,   115,   347,   116,
-     283,   285,   112,   113,   114,   115,   286,   116,   290,   291,
-     297,   298,   299,   302,   314,   306,   307,   308,   309,   315,
-     316,   317,   318,   338,   188,   322,   323,   329,   166,   324,
-     163,   162,   335,   336,   337,   341,   108,   204,   346,   348,
-     205,   349,   109,   254,     0,     0,     0,   208
+     116,   261,   199,    50,   262,   -69,   251,   252,   312,   215,
+     120,   216,   112,   113,   114,   115,   125,   116,   112,   113,
+     114,   115,   126,   116,   200,   201,   202,   264,   220,    99,
+     221,   100,   268,    99,   129,   270,   130,   112,   113,   114,
+     115,   223,   116,   224,   279,   240,   241,   242,   179,    58,
+     112,   113,   114,   115,   288,   116,   289,   145,   290,   146,
+     112,   113,   114,   115,   296,   116,   127,   128,   257,   297,
+     258,   133,   134,     2,   301,   137,     3,   112,   113,   114,
+     115,   196,   116,   197,   306,     4,     5,     6,     7,     8,
+       9,    10,    11,    12,    13,    14,    15,    16,    17,    18,
+      19,    20,    21,    22,    23,   237,   326,   238,    24,   294,
+     272,   295,   273,   281,   142,   282,    25,   331,   112,   113,
+     114,   115,   332,   116,   333,   170,   159,   143,   144,   161,
+     165,   334,   335,   228,   112,   113,   114,   115,   168,   116,
+     266,   341,   112,   113,   114,   115,   269,   116,   151,   112,
+     113,   114,   115,   271,   116,   112,   113,   114,   115,   293,
+     116,   116,   112,   113,   114,   115,   302,   116,   112,   113,
+     114,   115,   304,   116,   176,   112,   113,   114,   115,   305,
+     116,   112,   113,   114,   115,   322,   116,   186,   112,   113,
+     114,   115,   327,   116,   112,   113,   114,   115,   328,   116,
+     187,   112,   113,   114,   115,   340,   116,   112,   113,   114,
+     115,   345,   116,   203,   112,   113,   114,   115,   346,   116,
+     112,   113,   114,   115,   206,   116,   209,   112,   113,   114,
+     115,   210,   116,   110,   111,   212,   211,   100,   231,   320,
+     112,   113,   114,   115,   232,   116,   112,   113,   114,   115,
+     321,   116,   235,   239,   249,  -105,   260,   112,   113,   114,
+     115,   214,   116,   259,   250,   112,   113,   114,   115,   267,
+     116,   263,   253,   112,   113,   114,   115,   280,   116,   265,
+     274,   112,   113,   114,   115,   329,   116,   275,   276,   112,
+     113,   114,   115,   343,   116,   277,   278,   112,   113,   114,
+     115,   344,   116,   283,   285,   112,   113,   114,   115,   348,
+     116,   284,   286,   112,   113,   114,   115,   287,   116,   291,
+     292,  -107,   298,   299,   300,   303,   307,   308,   309,   310,
+     315,   316,   317,   318,   319,   339,   323,   324,   330,   166,
+     163,   325,   162,   336,   337,   338,   342,   108,   188,   347,
+     349,   254,   350,   109,   204,   205,   208
 ];
 
 private static immutable short[] yycheck_ =
@@ -1757,44 +1766,44 @@ private static immutable short[] yycheck_ =
       11,    36,    37,    38,    39,    40,   145,    32,     5,    63,
       64,    65,    66,    53,    68,    33,    46,    59,    53,   158,
      159,   157,   161,    53,    35,    55,   165,    56,    57,   168,
-      41,    42,    56,    34,    45,    59,    59,     7,    63,    64,
+      41,    42,    56,    34,    45,    59,    56,    57,    63,    64,
       65,    66,    53,    68,   183,    63,    64,    65,    66,    56,
-      68,    56,    59,    64,    59,    46,   195,   196,    59,    54,
-      59,    56,    63,    64,    65,    66,     5,    68,    63,    64,
+      68,    56,    59,    64,    59,    59,   195,   196,    59,    54,
+       7,    56,    63,    64,    65,    66,    46,    68,    63,    64,
       65,    66,    59,    68,    55,    56,    57,   216,    54,    53,
-      56,    55,   221,     5,    53,   224,    55,    63,    64,    65,
+      56,    55,   221,    53,    53,   224,    55,    63,    64,    65,
       66,    54,    68,    56,   233,    63,    64,    65,     5,     6,
       63,    64,    65,    66,   243,    68,   245,    53,   247,    55,
-      63,    64,    65,    66,   253,    68,    46,    54,   257,    56,
-       5,     5,     0,   262,    59,     3,    63,    64,    65,    66,
-      53,    68,    55,   272,    12,    13,    14,    15,    16,    17,
-      18,    19,    20,    21,    22,    23,    24,    25,    26,    27,
-      28,    29,    30,    31,    54,   294,    56,    35,    54,    54,
-      56,    56,    54,    53,    56,    43,   302,    63,    64,    65,
-      66,   310,    68,   312,    54,    46,    59,    59,    53,    53,
-     319,   320,    54,    63,    64,    65,    66,    53,    68,    54,
-     329,    63,    64,    65,    66,    54,    68,    59,    63,    64,
+      63,    64,    65,    66,   253,    68,     5,    59,    54,   258,
+      56,    46,     5,     0,   263,     5,     3,    63,    64,    65,
+      66,    53,    68,    55,   273,    12,    13,    14,    15,    16,
+      17,    18,    19,    20,    21,    22,    23,    24,    25,    26,
+      27,    28,    29,    30,    31,    54,   295,    56,    35,    54,
+      54,    56,    56,    54,     5,    56,    43,   303,    63,    64,
+      65,    66,   311,    68,   313,    54,    46,    59,    59,    53,
+      53,   320,   321,    54,    63,    64,    65,    66,    53,    68,
+      54,   330,    63,    64,    65,    66,    54,    68,    59,    63,
+      64,    65,    66,    54,    68,    63,    64,    65,    66,    54,
+      68,    68,    63,    64,    65,    66,    54,    68,    63,    64,
+      65,    66,    54,    68,    59,    63,    64,    65,    66,    54,
+      68,    63,    64,    65,    66,    54,    68,     7,    63,    64,
       65,    66,    54,    68,    63,    64,    65,    66,    54,    68,
-      68,    63,    64,    65,    66,    54,    68,    63,    64,    65,
-      66,    54,    68,     7,    63,    64,    65,    66,    54,    68,
-      63,    64,    65,    66,    54,    68,    53,    63,    64,    65,
-      66,    54,    68,    63,    64,    65,    66,    54,    68,    59,
-      63,    64,    65,    66,    54,    68,    63,    64,    65,    66,
-      54,    68,    59,    63,    64,    65,    66,    54,    68,    63,
-      64,    65,    66,     5,    68,    33,    63,    64,    65,    66,
-      33,    68,    56,    57,     7,    55,    32,    32,    56,    63,
-      64,    65,    66,     5,    68,    63,    64,    65,    66,    56,
-      68,     7,    53,    53,    59,    53,    63,    64,    65,    66,
-      59,    68,    55,    57,    63,    64,    65,    66,    59,    68,
-       5,    59,    63,    64,    65,    66,    59,    68,    46,    57,
-      63,    64,    65,    66,    59,    68,     7,     7,    63,    64,
-      65,    66,    59,    68,     7,     7,    63,    64,    65,    66,
-      59,    68,     7,     5,    63,    64,    65,    66,    59,    68,
-      54,     5,    63,    64,    65,    66,     5,    68,     5,     5,
-      59,    59,     7,    46,     5,    59,    59,    59,    59,    54,
-      59,    59,    59,     5,   131,    54,    54,    46,   101,    65,
-      97,    93,    59,    59,    59,    59,    52,   139,    59,    59,
-     139,    59,    52,   198,    -1,    -1,    -1,   147
+      53,    63,    64,    65,    66,    54,    68,    63,    64,    65,
+      66,    54,    68,    59,    63,    64,    65,    66,    54,    68,
+      63,    64,    65,    66,    59,    68,     5,    63,    64,    65,
+      66,    33,    68,    56,    57,     7,    33,    55,    32,    56,
+      63,    64,    65,    66,    32,    68,    63,    64,    65,    66,
+      56,    68,     5,     7,    53,    59,     5,    63,    64,    65,
+      66,    59,    68,    55,    53,    63,    64,    65,    66,    59,
+      68,    46,    53,    63,    64,    65,    66,    59,    68,    59,
+      57,    63,    64,    65,    66,    59,    68,     7,     7,    63,
+      64,    65,    66,    59,    68,     7,     7,    63,    64,    65,
+      66,    59,    68,     7,     5,    63,    64,    65,    66,    59,
+      68,    54,     5,    63,    64,    65,    66,     5,    68,     5,
+       5,    59,    59,    59,     7,    46,    59,    59,    59,    59,
+       5,    54,    59,    59,    59,     5,    54,    54,    46,   101,
+      97,    65,    93,    59,    59,    59,    59,    52,   131,    59,
+      59,   198,    59,    52,   139,   139,   147
 ];
 
   /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -1826,16 +1835,17 @@ private static immutable byte[] yystos_ =
       54,    56,    93,    54,    56,    93,    84,    93,    54,    32,
       32,    32,    32,    33,    93,     5,    83,    54,    56,     7,
       63,    64,    65,    53,    59,    53,    59,    53,    59,    53,
-      53,    93,    93,    53,    90,    57,    54,    56,    55,     5,
-      56,    59,    46,    93,    59,    54,    59,    93,    54,    93,
-      54,    54,    56,    57,     7,     7,     7,     7,    93,    59,
-      54,    56,     7,    54,     5,     5,     5,    93,    93,    93,
-       5,     5,    54,    54,    56,    93,    93,    59,    59,     7,
-      93,    54,    46,    54,    54,    93,    59,    59,    59,    59,
-      34,    59,    46,    59,     5,    54,    59,    59,    59,    56,
-      56,    54,    54,    54,    65,    93,    54,    54,    59,    46,
-      94,    93,    93,    93,    93,    59,    59,    59,     5,    54,
-      93,    59,    59,    59,    54,    54,    59,    59,    59,    59
+      53,    93,    93,    53,    90,    56,    57,    54,    56,    55,
+       5,    56,    59,    46,    93,    59,    54,    59,    93,    54,
+      93,    54,    54,    56,    57,     7,     7,     7,     7,    93,
+      59,    54,    56,     7,    54,     5,     5,     5,    93,    93,
+      93,     5,     5,    54,    54,    56,    93,    93,    59,    59,
+       7,    93,    54,    46,    54,    54,    93,    59,    59,    59,
+      59,    34,    59,    46,    59,     5,    54,    59,    59,    59,
+      56,    56,    54,    54,    54,    65,    93,    54,    54,    59,
+      46,    94,    93,    93,    93,    93,    59,    59,    59,     5,
+      54,    93,    59,    59,    59,    54,    54,    59,    59,    59,
+      59
 ];
 
   /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
@@ -1851,11 +1861,11 @@ private static immutable byte[] yyr1_ =
       76,    76,    77,    77,    78,    78,    78,    78,    78,    78,
       79,    79,    80,    80,    80,    80,    80,    81,    81,    82,
       82,    82,    83,    83,    84,    84,    85,    85,    86,    86,
-      87,    87,    88,    88,    88,    88,    89,    89,    90,    90,
-      90,    91,    91,    92,    92,    92,    92,    93,    93,    93,
+      87,    87,    87,    87,    88,    88,    88,    88,    89,    89,
+      90,    90,    90,    91,    91,    92,    92,    92,    92,    93,
       93,    93,    93,    93,    93,    93,    93,    93,    93,    93,
-      93,    93,    93,    93,    93,    94,    94,    94,    95,    95,
-      96,    96
+      93,    93,    93,    93,    93,    93,    93,    94,    94,    94,
+      95,    95,    96,    96
 ];
 
   /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -1871,11 +1881,11 @@ private static immutable byte[] yyr2_ =
        1,     1,     1,     3,     1,     1,     2,     2,     1,     1,
        1,     3,     1,     4,     6,     2,     5,     1,     3,     4,
        6,     5,     1,     3,     1,     3,     1,     2,     1,     2,
-       2,     2,     1,     2,     2,     3,     1,     3,     4,     6,
-       5,     1,     3,     1,     4,     6,     2,     1,     1,     1,
-       3,     5,     2,     4,     6,     3,     3,     3,     3,     3,
-       2,     3,     1,     1,     1,     2,     5,     1,     2,     1,
-       1,     3
+       2,     2,     3,     3,     1,     2,     2,     3,     1,     3,
+       4,     6,     5,     1,     3,     1,     4,     6,     2,     1,
+       1,     1,     3,     5,     2,     4,     6,     3,     3,     3,
+       3,     3,     2,     3,     1,     1,     1,     2,     5,     1,
+       2,     1,     1,     3
 ];
 
 
@@ -1886,7 +1896,7 @@ private static immutable byte[] yyr2_ =
     return SymbolKind(t);
   }
 
-  private static immutable int yylast_ = 537;
+  private static immutable int yylast_ = 536;
   private static immutable int yynnts_ = 28;
   private static immutable int yyfinal_ = 2;
   private static immutable int yyntokens_ = 69;
@@ -1935,13 +1945,13 @@ private static immutable byte[] yyr2_ =
 /* Unqualified %code blocks.  */
 #line 34 "grammar.y"
 
-    import Node : Node, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, LetDimString, ReadDimString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize, FnEnd;
+    import Node : Node, Branch, Line, Stop, Goto, GoSub, Return, Let, LetDim, LetDim2, Read, ReadDim, ReadDim2, Input, InputDim, InputDim2, If, For, Next, Restore, LetString, InputString, ReadString, LetDimString, ReadDimString, ChangeFromString, ChangeToString, OnGoto, IfString, Randomize;
     import Expr : Expr, Op, Constant, Identifier, Dim, Dim2, Operation, MathFn, FnCall, StringExpr, StringVariable, StringConstant, StringIndexed;
     import LexerImpl : LexerImpl;
     import SymbolTable : SymbolTable, Edition;
-    import Print : Print, NewLine, Comma, SemiColon, String, PrintExpr, PrintString, PrintTab;
-    import Mat : MatRead, MatRead2, MatPrint, MatFullPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput, MatReadString, MatFullPrintDimString;
+    import Print : NewLine, Comma, SemiColon, String, PrintExpr, PrintString, PrintTab;
+    import Mat : MatRead, MatRead2, MatPrint, MatAdd, MatSub, MatMul, MatZerCon, MatIdn, MatTrn, MatInv, MatScalar, MatZerConIdnDim, MatInput, MatReadString, MatPrintString;
 
-#line 1946 "Parser.d"
+#line 1956 "Parser.d"
 
 }

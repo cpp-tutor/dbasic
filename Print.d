@@ -2,18 +2,6 @@ import std.stdio : writeln;
 import Node : Node;
 import Expr : Expr, StringExpr;
 
-class Print : Node {
-    this(Node pt) {
-        left = pt;
-    }
-    override void codegen() {
-        if (left) {
-            left.codegen();
-        }
-        super.codegen();
-    }
-}
-
 class NewLine : Node {
     override void codegen() {
         writeln("\tbl\tprint_newline(PLT)");
