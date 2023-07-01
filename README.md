@@ -2,7 +2,9 @@
 
 Modern implementation of the original Dartmouth BASIC compilers from the 1960s in the D programming language.
 
-This software is currently under a state of rapid development and should therefore be considered alpha quality.
+This software is currently under a state of rapid development and should therefore be considered alpha quaality.
+
+**Important Note**: The original version targeting 32-bit ARM is being moved to a separate branch (target-arm32), and it is unlikely much further work will be done. The focus of development is currently to support an LLVM target which will ultimately allow for compilation to native code (instead of ARM assembly language), as well as use of the LLVM optimizer.
 
 ## Building
 
@@ -188,6 +190,8 @@ Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is e
 * 2022/06/09: Tag 0.40.1 (almost complete pending code and specification review) implementation of Basic The Fourth (1968)
 
 * 2022/06/11: Tag 0.40.2 (bug fixes and feature improvements) Basic The Fourth update
+
+* 2023/07/01: Tag 0.40.3 (bug fixes and code improvements) Basic The Fourth update
 
 ## Bugs
 
