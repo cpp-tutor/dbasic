@@ -70,7 +70,7 @@ class Branch : Node {
     }
     override void codegen() {
         if (left is null) {
-            throw new Exception("Bad Branch Node");
+            throw new Exception("BAD BRANCH NODE");
         }
         left.codegen();
         super.codegen();
