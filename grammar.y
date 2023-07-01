@@ -11,7 +11,7 @@
 %token <int> KEYWORD IDENT STRING INTEGER RELOP DATASTRING
 %token <double> NUMBER
 %token <string> MATHFN
-%nterm <Parser.Node> Stmt Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn MatRead Input
+%nterm <Parser.Node> LineNo Stmt Print PrintSq PrintSt PrintEn PrintTa Read MatPr MatPrSq MatPrSt MatPrEn MatRead Input
 %nterm <Parser.Expr> Expr
 %nterm <int[]> IdSq GotoSq
 %nterm <Parser.Expr[]> ExprSq
@@ -43,65 +43,67 @@
 %%
 
 Stmts   : %empty
-        | Stmts Stmt
+        | Stmts LineNo Stmt EOL
         ;
 
-Stmt    : LINENO { $$ = new Line($1); next = next.link($$); }
-        // BASIC the First
-        | STOP EOL { $$ = new Stop(); next = next.link($$); }
-        | PRINT Print EOL { $$ = new Branch($2); next = next.link($$); }
-        | GO TO INTEGER EOL { $$ = new Goto(cast(ushort)$3); next = next.link($$); }
-        | GOSUB INTEGER EOL { $$ = new GoSub(cast(ushort)$2); next = next.link($$); }
-        | LET IDENT ASSIGN Expr EOL { $$ = new Let($2, $4); next = next.link($$); }
-        | LET IDENT LPAREN Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim($2, $4, $7); next = next.link($$); }
-        | LET IDENT LPAREN Expr COMMA Expr RPAREN ASSIGN Expr EOL { $$ = new LetDim2($2, $4, $6, $9); next = next.link($$); }
-        | IF Expr RELOP Expr THEN INTEGER EOL { $$ = new If($2, $3, $4, cast(ushort)$6); next = next.link($$); }
-        | IF Expr ASSIGN Expr THEN INTEGER EOL { $$ = new If($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
-        | FOR IDENT ASSIGN Expr TO Expr STEP Expr EOL { $$ = new For($2, $4, $6, $8); next = next.link($$); }
-        | FOR IDENT ASSIGN Expr TO Expr EOL { $$ = new For($2, $4, $6, new Constant(symtab.installConstant(1.0))); next = next.link($$); }
-        | NEXT IDENT EOL { $$ = new Next($2); next = next.link($$); }
-        | DATA DataSq EOL {}
-        | READ ReadSq EOL {}
-        | DIM DimSq EOL {}
-        | DEF FN IDENT LPAREN IdSq RPAREN ASSIGN Expr EOL { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, $8, -1, $5.length)); }
-        | DEF FN IDENT ASSIGN Expr EOL { symtab.addFunction($3, SymbolTable.Function(new int[0], $5, -1, 0)); }
-        | RETURN EOL { $$ = new Return(); next = next.link($$); }
-        | REM EOL { }
-        | END EOL { symtab.checkReferences(); return YYACCEPT; }
+LineNo  : LINENO { $$ = new Line($1); next = next.link($$); }
+        ;
+
+Stmt    // BASIC the First
+        : STOP { $$ = new Stop(); next = next.link($$); }
+        | PRINT Print { $$ = new Branch($2); next = next.link($$); }
+        | GO TO INTEGER { $$ = new Goto(cast(ushort)$3); next = next.link($$); }
+        | GOSUB INTEGER { $$ = new GoSub(cast(ushort)$2); next = next.link($$); }
+        | LET IDENT ASSIGN Expr { $$ = new Let($2, $4); next = next.link($$); }
+        | LET IDENT LPAREN Expr RPAREN ASSIGN Expr { $$ = new LetDim($2, $4, $7); next = next.link($$); }
+        | LET IDENT LPAREN Expr COMMA Expr RPAREN ASSIGN Expr { $$ = new LetDim2($2, $4, $6, $9); next = next.link($$); }
+        | IF Expr RELOP Expr THEN INTEGER { $$ = new If($2, $3, $4, cast(ushort)$6); next = next.link($$); }
+        | IF Expr ASSIGN Expr THEN INTEGER { $$ = new If($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
+        | FOR IDENT ASSIGN Expr TO Expr STEP Expr { $$ = new For($2, $4, $6, $8); next = next.link($$); }
+        | FOR IDENT ASSIGN Expr TO Expr { $$ = new For($2, $4, $6, new Constant(symtab.installConstant(1.0))); next = next.link($$); }
+        | NEXT IDENT { $$ = new Next($2); next = next.link($$); }
+        | DATA DataSq {}
+        | READ ReadSq {}
+        | DIM DimSq {}
+        | DEF FN IDENT LPAREN IdSq RPAREN ASSIGN Expr { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, $8, -1, $5.length)); }
+        | DEF FN IDENT ASSIGN Expr { symtab.addFunction($3, SymbolTable.Function(new int[0], $5, -1, 0)); }
+        | RETURN { $$ = new Return(); next = next.link($$); }
+        | REM { }
+        | END { symtab.checkReferences(); return YYACCEPT; }
         // BASIC the Second (CardBasic)
-        | MAT READ MatRdSq EOL {}
-        | MAT PRINT MatPr EOL { $$ = new Branch($3); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT PLUS IDENT EOL { $$ = new MatAdd($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT MINUS IDENT EOL { $$ = new MatSub($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN IDENT TIMES IDENT EOL { $$ = new MatMul($2, $4, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN EOL { $$ = new MatZerCon($2, $6, $8); next = next.link($$); }
-        | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN EOL { $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
-        | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN EOL { $$ = new MatIdn($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN EOL { $$ = new MatTrn($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN EOL { $$ = new MatInv($2, $6); next = next.link($$); }
-        | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT EOL { $$ = new MatScalar($2, $8, $5); next = next.link($$); }
+        | MAT READ MatRdSq {}
+        | MAT PRINT MatPr { $$ = new Branch($3); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT PLUS IDENT { $$ = new MatAdd($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT MINUS IDENT { $$ = new MatSub($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN IDENT TIMES IDENT { $$ = new MatMul($2, $4, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN ZER LPAREN Expr COMMA Expr RPAREN { $$ = new MatZerCon($2, $6, $8); next = next.link($$); }
+        | MAT IDENT ASSIGN CON LPAREN Expr COMMA Expr RPAREN { $$ = new MatZerCon($2, $6, $8, true); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN LPAREN Expr RPAREN { $$ = new MatIdn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN TRN LPAREN IDENT RPAREN { $$ = new MatTrn($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN INV LPAREN IDENT RPAREN { $$ = new MatInv($2, $6); next = next.link($$); }
+        | MAT IDENT ASSIGN LPAREN Expr RPAREN TIMES IDENT { $$ = new MatScalar($2, $8, $5); next = next.link($$); }
         // BASIC the Third
-        | MAT IDENT ASSIGN ZER EOL { $$ = new MatZerConIdnDim($2, 0); next = next.link($$); }
-        | MAT IDENT ASSIGN CON EOL { $$ = new MatZerConIdnDim($2, 1); next = next.link($$); }
-        | MAT IDENT ASSIGN IDN EOL { $$ = new MatZerConIdnDim($2, 2); next = next.link($$); }
-        | MAT INPUT IDENT EOL { $$ = new MatInput($3); next = next.link($$); }
-        | RESTORE EOL { $$ = new Restore(); next = next.link($$); }
-        | INPUT InputSq EOL {}
+        | MAT IDENT ASSIGN ZER { $$ = new MatZerConIdnDim($2, 0); next = next.link($$); }
+        | MAT IDENT ASSIGN CON { $$ = new MatZerConIdnDim($2, 1); next = next.link($$); }
+        | MAT IDENT ASSIGN IDN { $$ = new MatZerConIdnDim($2, 2); next = next.link($$); }
+        | MAT INPUT IDENT { $$ = new MatInput($3); next = next.link($$); }
+        | RESTORE { $$ = new Restore(); next = next.link($$); }
+        | INPUT InputSq {}
         // BASIC the Fourth
-        | LET IDENT DOLLAR ASSIGN StrExpr EOL { $$ = new LetString($2, $5); next = next.link($$); }
-        | LET IDENT DOLLAR LPAREN Expr RPAREN ASSIGN StrExpr EOL { $$ = new LetDimString($2, $5, $8); next = next.link($$); }
-        | IF StrExpr RELOP StrExpr THEN INTEGER EOL { $$ = new IfString($2, $3, $4, cast(ushort)$6); next = next.link($$); }
-        | IF StrExpr ASSIGN StrExpr THEN INTEGER EOL { $$ = new IfString($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
-        | ON Expr GotoThen GotoSq EOL { $$ = new OnGoto($2, $4); next = next.link($$); }
-        | CHANGE IDENT DOLLAR TO IDENT EOL { $$ = new ChangeFromString($2, $5); next = next.link($$); }
-        | CHANGE IDENT TO IDENT DOLLAR EOL { $$ = new ChangeToString($2, $4); next = next.link($$); }
-        | RANDOM EOL { $$ = new Randomize(); next = next.link($$); }
-        | RESTORE TIMES EOL { $$ = new Restore(true, false); next = next.link($$); }
-        | RESTORE DOLLAR EOL { $$ = new Restore(false, true); next = next.link($$); }
-        | DEF FN IDENT LPAREN IdSq RPAREN EOL { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, null, symtab.line, $5.length)); symtab.registerFlow(symtab.line); }
-        | DEF FN IDENT EOL { symtab.addFunction($3, SymbolTable.Function(new int[0], null, symtab.line, 0)); symtab.registerFlow(symtab.line); }
-        | LET FN IDENT ASSIGN Expr EOL { $$ = new Let(symtab.installId("FN" ~ symtab.getId($3)), $5); next = next.link($$); }
-        | FN END EOL { $$ = new Return(); next = next.link($$); }
+        | LET IDENT DOLLAR ASSIGN StrExpr { $$ = new LetString($2, $5); next = next.link($$); }
+        | LET IDENT DOLLAR LPAREN Expr RPAREN ASSIGN StrExpr { $$ = new LetDimString($2, $5, $8); next = next.link($$); }
+        | IF StrExpr RELOP StrExpr THEN INTEGER { $$ = new IfString($2, $3, $4, cast(ushort)$6); next = next.link($$); }
+        | IF StrExpr ASSIGN StrExpr THEN INTEGER { $$ = new IfString($2, TokenKind.EQ, $4, cast(ushort)$6); next = next.link($$); }
+        | ON Expr GotoThen GotoSq { $$ = new OnGoto($2, $4); next = next.link($$); }
+        | CHANGE IDENT DOLLAR TO IDENT { $$ = new ChangeFromString($2, $5); next = next.link($$); }
+        | CHANGE IDENT TO IDENT DOLLAR { $$ = new ChangeToString($2, $4); next = next.link($$); }
+        | RANDOM { $$ = new Randomize(); next = next.link($$); }
+        | RESTORE TIMES { $$ = new Restore(true, false); next = next.link($$); }
+        | RESTORE DOLLAR { $$ = new Restore(false, true); next = next.link($$); }
+        | DEF FN IDENT LPAREN IdSq RPAREN { foreach(id; $5) symtab.initializeId(id); symtab.addFunction($3, SymbolTable.Function($5, null, symtab.line, $5.length)); symtab.registerFlow(symtab.line); }
+        | DEF FN IDENT { symtab.addFunction($3, SymbolTable.Function(new int[0], null, symtab.line, 0)); symtab.registerFlow(symtab.line); }
+        | LET FN IDENT ASSIGN Expr { $$ = new Let(symtab.installId("FN" ~ symtab.getId($3)), $5); next = next.link($$); }
+        | FN END { $$ = new Return(); next = next.link($$); }
         ;
 
 Print   : %empty { $$ = new NewLine(); }
