@@ -2,11 +2,11 @@ import std.stdio : writeln, write;
 import Node : Node;
 import SymbolTable : SymbolTable, Edition;
 
-public enum Op { Add, Sub, Mul, Div, Exp, Neg };
+public enum Op { Add, Sub, Mul, Div, Exp, Neg }
 public immutable int number_fp_regs = 8;
 
 class Expr : Node {
-    protected enum Register { Available, InUse, Reserved };
+    protected enum Register { Available, InUse, Reserved }
     static private Register[number_fp_regs] regs;
     static void clearRegs() {
         regs[0] = regs[1] = Register.Reserved; // d0, d1, s0, s1, s2, s3
@@ -17,7 +17,7 @@ class Expr : Node {
         }
     }
     static int allocateReg() {
-        for (int r = regs.length - 1; r >= 0; --r) {
+        for (int r = number_fp_regs - 1; r >= 0; --r) {
             if (regs[r] == Register.Available) {
                 regs[r] = Register.InUse;
                 return r;

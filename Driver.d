@@ -19,7 +19,8 @@ int main(const string[] args) {
     }
     auto symtab = new SymbolTable(cast(Edition)edition);
     auto lexer = new LexerImpl(symtab);
-    stderr.writeln("BASIC The ", to!string(symtab.edition), symtab.edition > MAX_SUPPORTED_EDITION ? " (not yet implemented)" : "");
+    stderr.writeln("BASIC The ", to!string(symtab.edition),
+        symtab.edition > MAX_SUPPORTED_EDITION ? " (not yet implemented)" : "");
     auto head = new Node(symtab);
     auto parser = new Parser(lexer, symtab, head);
     auto msg = collectExceptionMsg(parser.parse());

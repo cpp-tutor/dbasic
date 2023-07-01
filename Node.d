@@ -481,17 +481,17 @@ class For : Node {
         if (stack.length == 0) {
             return -1;
         }
-        int id = stack[$ - 1];
+        int popped = stack[$ - 1];
         stack = stack[0 .. $ - 1];
-        return id;
+        return popped;
     }
     static int popID() {
         if (ident_stack.length == 0) {
             return -1;
         }
-        int id = ident_stack[$ - 1];
+        int popped_id = ident_stack[$ - 1];
         ident_stack = ident_stack[0 .. $ - 1];
-        return id;
+        return popped_id;
     }
     this(int i, Expr b, Expr e, Expr s) {
         left = new Node(new Node(b, e), s);
