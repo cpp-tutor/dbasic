@@ -152,6 +152,7 @@ class Let : Node {
         left = e;
     }
     override void codegen() {
+        Expr.clearRegs();
         left.codegen();
         writeln("\tadrl\tr0, .", symtab.getId(ident));
         writeln("\tvstr.f64\td", (cast(Expr)left).result, ", [r0]");
