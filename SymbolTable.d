@@ -28,7 +28,7 @@ class SymbolTable {
     this(Edition edition) {
         basic_edition = edition;
     }
-    @property enum Edition edition() {
+    @property Edition edition() {
         return cast(Edition)basic_edition;
     }
     void error(string msg) {
