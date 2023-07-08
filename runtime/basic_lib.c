@@ -4,6 +4,8 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define TmpBufSz 16
+
 extern int basic_run();
 
 struct Dims {
@@ -26,11 +28,11 @@ struct Data {
 };
 
 unsigned pos = 0, vpos = 0;
-const unsigned TmpBufSz = 256, PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
+const unsigned PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
 
 void print_string(const char *s) {
     while (*s) {
-        while (*s && (pos < 75)) {
+        while (*s && (pos < PrintWidth)) {
             putchar(*s++);
             ++pos;
         }
@@ -472,7 +474,7 @@ void mat_input(double *d, unsigned *sz, double *num, short l) {
     *num = s;
 }
 
-void change_from_string(unsigned char **s, double *d, unsigned sz, short l) {
+void change_from_string(char **s, double *d, unsigned sz, short l) {
     unsigned len = strlen(*s);
     if (len > sz) {
         runtime_error(6, l);
