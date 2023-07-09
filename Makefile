@@ -2,7 +2,7 @@
 
 BASE = dbasic
 DMD = gdc
-DMDFLAGS = --release -O
+DMDFLAGS = -Wall --release -O
 BISON = bison
 OBJS = Parser.o LexerImpl.o SymbolTable.o Node.o Expr.o Print.o Mat.o Driver.o
 AUTOGEN = Parser.d

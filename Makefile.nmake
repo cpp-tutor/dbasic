@@ -5,7 +5,7 @@
 # note: place win_bison.exe in the same directory as this makefile or specify path here
 Bison = win_bison.exe
 DMD = dmd.exe
-DMDFlags = -release -O
+DMDFlags = -release -O  # -m64
 
 Target = dbasic.exe
 Objs = Parser.obj LexerImpl.obj SymbolTable.obj Node.obj Expr.obj Print.obj Mat.obj Driver.obj
