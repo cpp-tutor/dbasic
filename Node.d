@@ -48,7 +48,7 @@ class Node {
         writeln(".basic_end:");
         writeln("\tpop\t{ r0 }");
         writeln("\tcmn\tr0, #1");
-        writeln("\tmovne\tr0, #1"); // error: end within GOSUB/FN
+        writeln("\tmovne\tr0, #2"); // error: end within GOSUB/FN
         writeln("\tmovne\tr1, #", symtab.line & 0xff00);
         writeln("\torrne\tr1, r1, #", symtab.line & 0xff);
         writeln("\tblne\truntime_error(PLT)");

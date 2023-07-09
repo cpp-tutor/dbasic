@@ -4,7 +4,8 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define TmpBufSz 16
+#define TmpBufSz 80
+#define MaxString 256
 
 extern int basic_run();
 
@@ -28,7 +29,7 @@ struct Data {
 };
 
 unsigned pos = 0, vpos = 0;
-const unsigned PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
+const unsigned PrintWidth = 75, Comma = 15, SemiColon = 3;
 
 void print_string(const char *s) {
     while (*s) {

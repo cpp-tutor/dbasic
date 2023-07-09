@@ -86,7 +86,6 @@ class MatPrint : Node {
     this(int id, bool p = false) {
         ident = id;
         packed = p;
-        //symtab.initializeMat(ident);
         type = symtab.getMatType(ident);
         if (type == 0) {
             symtab.error("NOT A MATRIX");

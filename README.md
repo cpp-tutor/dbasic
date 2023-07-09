@@ -2,9 +2,7 @@
 
 Modern implementation of the original Dartmouth BASIC compilers from the 1960s in the D programming language.
 
-This software is currently under a state of rapid development and should therefore be considered alpha quaality.
-
-**Important Note**: The original version targeting 32-bit ARM is being moved to a separate branch (target-arm32), and it is unlikely much further work will be done. The focus of development is currently to support an LLVM target which will ultimately allow for compilation to native code (instead of ARM assembly language), as well as use of the LLVM optimizer.
+**Important Note**: This original version targeting 32-bit ARM is now in a separate branch (target-arm32), and it is unlikely much further work will be done. The focus of development for the main branch is currently to support an LLVM target which will ultimately allow for compilation to native code (instead of ARM assembly language), as well as use of the LLVM optimizer.
 
 ## Building
 
@@ -12,7 +10,7 @@ This software is currently under a state of rapid development and should therefo
 
 **Prerequisites:**
 
-* Bison parser generator `win_bison.exe` from https://github.com/lexxmark/winflexbison (to compile `grammar.y`). Note that a patch to the D skeleton file `d.m4` is currently required (see below); if running or patching WinFlexBison is not possible simply copy `Parser.d` out of the `autogen` directory.
+* Bison parser generator `win_bison.exe` from https://github.com/lexxmark/winflexbison (to compile `grammar.y`). Note that a patch to the D skeleton file `d.m4` is currently required (see below); if running or patching WinFlexBison is not possible simply copy `Parser.d` out of the `autogen` directory and remember to time-stamp it.
 
 * Recent D compiler `dmd.exe`, tested with Digital Mars D (DMD) v2.098.1 from https://dlang.org/download.html#dmd
 
@@ -38,7 +36,7 @@ This software is currently under a state of rapid development and should therefo
 
 **Prerequisites:**
 
-* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro (3.8.2.x or above) may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory.
+* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro (3.8.2 or above) may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory and `touch` it.
 
 * Recent D compiler, tested with both GNU `gdc` and LLVM `ldc`
 
@@ -90,7 +88,7 @@ The file `data\skeletons\d.m4` (WinFlexBison) or `/usr/share/bison/skeletons/d.m
 
 ### Windows
 
-The executable `dbasic.exe` reads from standard input and writes to standard output, optionally with the required numerical Language Edition (only 1-3 currently supported).
+The executable `dbasic.exe` reads from standard input and writes to standard output, optionally with the required numerical Language Edition (only 1-4 currently supported).
 
 The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.s`:
 
@@ -115,7 +113,7 @@ gcc -o test test.s basic_lib.s -lm
 ./test
 ```
 
-### Linux (Debian/Ubuntu)
+### Linux (Debian/Ubuntu etc.)
 
 To compile the assembly language output and support library, the ARM cross-compiler toolchain is required, including `arm-linux-gnueabihf-gcc`, from issuing `apt install gcc-arm-linux-gnueabihf libc-dev-armhf-cross`
 
@@ -138,6 +136,12 @@ To build and run `test` from `test.s` use:
 ```
 arm-linux-gnueabihf-gcc -o test test.s basic_lib.s -lm
 QEMU_LD_PREFIX=/usr/arm-linux-gnueabihf qemu-arm ./test
+```
+
+Alternatively use the executable shell script `run-linux.sh` to create and execute `a.out` with`qemu-arm`, eg:
+
+```
+./runtime/run-linux.sh examples/example-p12.bas
 ```
 
 ### Linux (Arch-based)
@@ -163,6 +167,12 @@ To build and run `test` from `test.s` use:
 ```
 arm-none-linux-gnueabihf-gcc -o test test.s basic_lib.s -lm
 QEMU_LD_PREFIX=/usr/arm-none-linux-gnueabihf/libc qemu-arm ./test
+```
+
+Alternatively use the executable shell script `run-arch.sh` to create and execute `a.out` with`qemu-arm`, eg:
+
+```
+./runtime/run-arch.sh examples/example-p12.bas
 ```
 
 ## Resources
@@ -192,6 +202,8 @@ Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is e
 * 2022/06/11: Tag 0.40.2 (bug fixes and feature improvements) Basic The Fourth update
 
 * 2023/07/01: Tag 0.40.3 (bug fixes and code improvements) Basic The Fourth update
+
+* 2023/07/09: Tag 0.45.0 (bug fixes and code improvements) Basic The Fourth update **likely to be the final ARM release**
 
 ## Bugs
 

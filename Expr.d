@@ -120,19 +120,18 @@ class Dim2 : Expr {
     private Expr row, col;
     this(int i, Expr idx1, Expr idx2) {
         ident = i;
-        row = idx1;
-        col = idx2;
+        left = new Node(idx1, idx2);
     }
     override void codegen() {
-        row.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", row.result);
+        left.left.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
         writeln("\tvmov\tr0, s0");
-        deallocateReg(row.result);
+        deallocateReg((cast(Expr)(left.left)).result);
         writeln("\tpush\t{ r0 }");
-        col.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", col.result);
+        left.right.codegen();
+        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.right)).result);
         writeln("\tvmov\tr2, s0");
-        setResult(col.result);
+        setResult((cast(Expr)(left.right)).result);
         writeln("\tpop\t{ r1 }");
         writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
         writeln("\tldr\tr3, [r0, #4]"); // sz2
