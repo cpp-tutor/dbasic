@@ -1,11 +1,26 @@
-import std.stdio : writeln;
+import std.stdio : writeln, write, stderr;
+import std.format : format;
+import std.conv : to;
 import SymbolTable : SymbolTable, Edition;
 import Expr : Expr, StringExpr;
 import Parser : Parser, TokenKind;
+import Target : ll_header, ll_footer, gepDim, gepDim2, readData, gepStringDim, readStringData;
 
 class Node {
     protected Node left, right;
-    static protected SymbolTable symtab;
+    enum Control { Unset, Reachable, Unreachable }
+    static protected Control status = Control.Unset; // hack for Line() dummy blocks bumping register count
+    static private SymbolTable symbols;
+    static private int ll_register = 0, temp_label = 0;
+    @property int reg() {
+        return ll_register++;
+    }
+    @property string label() {
+        return "t" ~ to!string(temp_label++);
+    }
+    @property SymbolTable symtab() {
+        return symbols;
+    }
     this() {
         left = right = null;
     }
@@ -14,7 +29,7 @@ class Node {
         right = r;
     }
     this(SymbolTable s) {
-        symtab = s;
+        symbols = s;
         left = right = null;
     }
     final ref Node link(Node n) { // must return ref
@@ -31,30 +46,39 @@ class Node {
         }
         last.right = n;
     }
-    final void prelude() const {
-        writeln("\t.section .mixed, \"awx\"");
-        writeln("\t.global basic_run");
-        writeln("\t.arch armv2");
-        writeln("\t.syntax unified");
-        writeln("\t.arm");
-        writeln("\t.fpu vfp");
-        writeln("\t.type    basic_run, %function");
-        writeln("basic_run:");
-        writeln("\tpush\t{ lr }");
-        writeln("\tmvn\tr0, #0");
-        writeln("\tpush\t{ r0 }");
+    final void prolog() const {
+        write(ll_header);
     }
-    final void interlude() const {
-        writeln(".basic_end:");
-        writeln("\tpop\t{ r0 }");
-        writeln("\tcmn\tr0, #1");
-        writeln("\tmovne\tr0, #1"); // error: end within GOSUB/FN
-        writeln("\tmovne\tr1, #", symtab.line & 0xff00);
-        writeln("\torrne\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblne\truntime_error(PLT)");
-        writeln("\tmov\tr0, #0");
-        writeln("\tpop\t{ pc }");
-        writeln("\t.balign 8");
+    final void epilog() {
+        if (status != Control.Unreachable) {
+            writeln("    br label %exit");
+        }
+        auto next = symtab.gosub;
+        if (next > 1) { // also handles function call returns
+            writeln("  return:");
+            auto ptr = reg;
+            writeln(format("    %%%d = load i32, i32* %%_RETURN_P", ptr));
+            auto dec = reg;
+            writeln(format("    %%%d = sub i32 %%%d, 1", dec, ptr));
+            writeln(format("    store i32 %%%d, i32* %%_RETURN_P", dec));
+            auto gep = reg;
+            writeln(format("    %%%d = getelementptr [%d x i32], [%d x i32]* %%_RETURN, i32 0, i32 %%%d",
+                gep, symtab.max_depth, symtab.max_depth, dec));
+            auto jmp = reg;
+            writeln(format("    %%%d = load i32, i32* %%%d", jmp, gep));
+            auto label1 = label;
+            writeln(format("    switch i32 %%%d, label %%%s [", jmp, label1));
+            for (int i = 1; i != next; ++i) {
+                if (symtab.getReturns()[i] == true) {
+                    writeln(format("      i32 %d, label %%return%d", i, i));
+                }
+            }
+            writeln("    ]");
+            writeln("  ", label1, ":");
+            writeln(format("    call void @runtime_error(i32 3, i16 %u)", symtab.line)); // error: not in GoSub
+            writeln("    unreachable");
+        }
+        write(ll_footer);
     }
     void codegen() {
         if (right) {
@@ -85,7 +109,20 @@ class Line : Node {
     override void codegen() {
         symtab.setLine(line, false);
         if (symtab.referencedLine(line)) {
-            writeln(".", line, ":");
+            //auto bump = reg, bump2 = reg;
+            if (status != Control.Unreachable) {
+                writeln("    br label %.", line);
+            }
+            else {
+                status = Control.Reachable;
+            }
+            //writeln("    unreachable\t; %", bump, " %", bump2);
+            writeln("  .", line, ":");
+        }
+        else { // FIXME
+            if (status == Control.Unreachable && right !is null) {
+                throw new Exception("UNREACHABLE CODE");
+            }
         }
         super.codegen();
     }
@@ -93,7 +130,10 @@ class Line : Node {
 
 class Stop : Node {
     override void codegen() {
-        writeln("\tb\t.basic_end");
+        writeln("    br label %exit");
+        status = Control.Unreachable;
+        //auto bump = reg, bump2 = reg;
+        //writeln("    unreachable\t; %", bump, " %", bump2);
         super.codegen();
     }
 }
@@ -108,38 +148,56 @@ class Goto : Node {
         if (!symtab.referencedLine(line)) {
             throw new Exception("BAD LINE");
         }
-        writeln("\tb\t.", line);
+        writeln("    br label %.", line);
+        status = Control.Unreachable;
+        //auto bump = reg, bump2 = reg;
+        //writeln("    unreachable\t\t; %", bump, " %", bump2);
         super.codegen();
     }
 }
 
 class GoSub : Node {
     private ushort line;
+    private int ret;
     this(ushort l) {
         line = l;
         symtab.registerFlow(line);
+        ret = symtab.gosub;
     }
     override void codegen() {
         if (!symtab.referencedLine(line)) {
             throw new Exception("BAD LINE");
         }
-        writeln("\tadd\tr14, pc, #4");
-        writeln("\tpush\t{ r14 }");
-        writeln("\tb\t.", line);
-        writeln("\tnop"); // for some armv3
+        auto ptr = reg;
+        writeln(format("    %%%d = load i32, i32* %%_RETURN_P", ptr));
+        auto inc = reg;
+        writeln(format("    %%%d = add i32 %%%d, 1", inc, ptr));
+        auto cmp = reg;
+        writeln(format("    %%%d = icmp ne i32 %%%d, %d", cmp, inc, symtab.max_depth));
+        auto fct = reg;
+        writeln(format("    %%%d = select i1 %%%d, void (i32, i16)* @dummy_fct, void (i32, i16)* @runtime_error", fct, cmp));
+        writeln(format("    call void %%%d(i32 2, i16 %d)", fct, symtab.line)); // error: too many nested calls
+        writeln(format("    store i32 %%%d, i32* %%_RETURN_P", inc));
+        auto gep = reg;
+        writeln(format("    %%%d = getelementptr [%d x i32], [%d x i32]* %%_RETURN, i32 0, i32 %%%d",
+            gep, symtab.max_depth, symtab.max_depth, ptr));
+        writeln(format("    store i32 %d, i32* %%%d", ret, gep));
+        writeln("    br label %.", line);
+        //auto bump = reg;
+        //writeln("    unreachable\t; %",  bump);
+        writeln("  return", ret, ":");
         super.codegen();
+    }
+    static void table() {
     }
 }
 
 class Return : Node {
     override void codegen() {
-        writeln("\tpop\t{ r14 }");
-        writeln("\tcmn\tr14, #1");
-        writeln("\tmoveq\tr0, #3"); // error: not within GOSUB/FN
-        writeln("\tmoveq\tr1, #", symtab.line & 0xff00);
-        writeln("\torreq\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tbleq\truntime_error(PLT)");
-        writeln("\tmov\tpc, r14");
+        writeln("    br label %return");
+        status = Control.Unreachable;
+        //auto bump = reg;
+        //writeln("    unreachable\t; %",  bump);
         super.codegen();
     }
 }
@@ -152,10 +210,8 @@ class Let : Node {
         left = e;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvstr.f64\td", (cast(Expr)left).result, ", [r0]");
+        writeln(format("    store double %%%d, double* %%%s", (cast(Expr)left).result, symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -168,24 +224,12 @@ class LetDim : Node {
         left = new Node(idx, e);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tpush\t{ r0 }");
-        Expr.clearRegs();
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)(left.left)).result));
+        auto gep = gepDim(this, ident, idx);
         left.right.codegen();
-        writeln("\tpop\t{ r0 }");
-        writeln("\tadrl\tr1, ._data", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tvstr.f64\td", (cast(Expr)(left.right)).result, ", [r0]");
+        writeln(format("    store double %%%d, double* %%%d", (cast(Expr)(left.right)).result, gep));
         super.codegen();
     }
 }
@@ -198,34 +242,15 @@ class LetDim2 : Node {
         left = new Node(new Node(idx1, idx2), e);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left.left)).result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tpush\t{ r1 }");
-        Expr.clearRegs();
+        auto idx1 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx1, (cast(Expr)(left.left.left)).result));
         left.left.right.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left.right)).result);
-        writeln("\tvmov\tr2, s0");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
-        writeln("\tldr\tr3, [r0, #0]");
-        writeln("\tcmp\tr1, r3");
-        writeln("\tldrle\tr3, [r0, #4]");
-        writeln("\tcmple\tr2, r3");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadd\tr3, r3, #1");
-        writeln("\tmla\tr0, r1, r3, r2"); // offset = idx1 * (sz2 + 1) + idx2
-        writeln("\tpush\t{ r0 }");
-        Expr.clearRegs();
+        auto idx2 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx2, (cast(Expr)(left.left.right)).result));
+        auto gep = gepDim2(this, ident, idx1, idx2);
         left.right.codegen();
-        writeln("\tpop\t{ r0 }");
-        writeln("\tadrl\tr1, ._data2", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tvstr.f64\td", (cast(Expr)(left.right)).result, ", [r0]");
+        writeln(format("    store double %%%d, double* %%%d", (cast(Expr)(left.right)).result, gep));
         super.codegen();
     }
 }
@@ -238,22 +263,8 @@ class Read : Node {
         symtab.useData(true);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, ._data_ptr");
-        writeln("\tadrl\tr1, ._data_max");
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tldr\tr3, [r1]");
-        writeln("\tcmp\tr2, r3");
-        writeln("\tmovge\tr0, #1"); // error: out of data
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
-        writeln("\tadd\tr2, r2, #1");
-        writeln("\tstr\tr2, [r0]");
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvstr.f64\td0, [r0]");
+        auto data = readData(this);
+        writeln(format("    store double %%%d, double* %%%s", data, symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -267,36 +278,12 @@ class ReadDim : Node {
         symtab.useData(true);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left)).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._data", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tpush\t{ r0 }");
-        writeln("\tadrl\tr0, ._data_ptr");
-        writeln("\tadrl\tr1, ._data_max");
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tldr\tr3, [r1]");
-        writeln("\tcmp\tr2, r3");
-        writeln("\tmovge\tr0, #1"); // error: out of data
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
-        writeln("\tadd\tr2, r2, #1");
-        writeln("\tstr\tr2, [r0]");
-        writeln("\tpop\t{ r0 }");
-        writeln("\tvstr.f64\td0, [r0]");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)left).result));
+        auto gep = gepDim(this, ident, idx);
+        auto data = readData(this);
+        writeln(format("    store double %%%d, double* %%%d", data, gep));
         super.codegen();
     }
 }
@@ -310,46 +297,15 @@ class ReadDim2 : Node {
         symtab.useData(true);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tpush\t{ r1 }");
-        Expr.clearRegs();
+        auto idx1 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx1, (cast(Expr)(left.left)).result));
         left.right.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.right)).result);
-        writeln("\tvmov\tr2, s0");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
-        writeln("\tldr\tr3, [r0, #0]");
-        writeln("\tcmp\tr1, r3");
-        writeln("\tldrle\tr3, [r0, #4]");
-        writeln("\tcmple\tr2, r3");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadd\tr3, r3, #1");
-        writeln("\tmla\tr0, r1, r3, r2"); // offset = idx1 * (sz2 + 1) + idx2
-        writeln("\tpush\t{ r0 }");
-        writeln("\tadrl\tr0, ._data_ptr");
-        writeln("\tadrl\tr1, ._data_max");
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tldr\tr3, [r1]");
-        writeln("\tcmp\tr2, r3");
-        writeln("\tmovge\tr0, #1"); // error: out of data
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr3, ._data");
-        writeln("\tadd\tr3, r3, r2, LSL #3");
-        writeln("\tvldr.f64\td0, [r3]");
-        writeln("\tadd\tr2, r2, #1");
-        writeln("\tstr\tr2, [r0]");
-        writeln("\tpop\t{ r0 }");
-        writeln("\tadrl\tr1, ._data2", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tvstr.f64\td0, [r0]");
+        auto idx2 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx2, (cast(Expr)(left.right)).result));
+        auto gep = gepDim2(this, ident, idx1, idx2);
+        auto data = readData(this);
+        writeln(format("    store double %%%d, double* %%%d", data, gep));
         super.codegen();
     }
 }
@@ -361,8 +317,7 @@ class Input : Node {
         symtab.initializeId(ident);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tbl\tinput_number(PLT)");
+        writeln(format("    call void @read_number(double* %%%s)", symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -375,20 +330,11 @@ class InputDim : Node {
         left = e;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left)).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._data", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tbl\tinput_number(PLT)");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)left).result));
+        auto gep = gepDim(this, ident, idx);
+        writeln(format("    call void @read_number(double* %%%d)", gep));
         super.codegen();
     }
 }
@@ -401,30 +347,14 @@ class InputDim2 : Node {
         left = new Node(idx1, idx2);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tpush\t{ r1 }");
-        Expr.clearRegs();
+        auto idx1 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx1, (cast(Expr)(left.left)).result));
         left.right.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.right)).result);
-        writeln("\tvmov\tr2, s0");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
-        writeln("\tldr\tr3, [r0, #0]");
-        writeln("\tcmp\tr1, r3");
-        writeln("\tldrle\tr3, [r0, #4]");
-        writeln("\tcmple\tr2, r3");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadd\tr3, r3, #1");
-        writeln("\tmla\tr0, r1, r3, r2"); // offset = idx1 * (sz2 + 1) + idx2
-        writeln("\tadrl\tr1, ._data2", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3");
-        writeln("\tbl\tinput_number(PLT)");
+        auto idx2 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx2, (cast(Expr)(left.right)).result));
+        auto gep = gepDim2(this, ident, idx1, idx2);
+        writeln(format("    call void @read_number(double* %%%d)", gep));
         super.codegen();
     }
 }
@@ -442,33 +372,35 @@ class If : Node {
         if (!symtab.referencedLine(line)) {
             throw new Exception("BAD LINE");
         }
-        Expr.clearRegs();
         left.left.codegen();
         left.right.codegen();
-        writeln("\tvcmp.f64\td", (cast(Expr)left.left).result, ", d", (cast(Expr)left.right).result);
-        writeln("\tvmrs\tAPSR_nzcv, FPSCR");
+        auto cmp = reg;
+        auto lhs = (cast(Expr)(left.left)).result, rhs = (cast(Expr)(left.right)).result;
+        auto label1 = label;
         switch (relop) {
             case TokenKind.EQ:
-                writeln("\tbeq\t.", line);
+                writeln(format("    %%%d = fcmp oeq double %%%d, %%%d", cmp, lhs, rhs));
                 break;
             case TokenKind.NE:
-                writeln("\tbne\t.", line);
+                writeln(format("    %%%d = fcmp one double %%%d, %%%d", cmp, lhs, rhs));
                 break;
             case TokenKind.LT:
-                writeln("\tblt\t.", line);
-                break;
+                writeln(format("    %%%d = fcmp olt double %%%d, %%%d", cmp, lhs, rhs));
+               break;
             case TokenKind.LE:
-                writeln("\tble\t.", line);
+                writeln(format("    %%%d = fcmp ole double %%%d, %%%d", cmp, lhs, rhs));
                 break;
             case TokenKind.GE:
-                writeln("\tbge\t.", line);
+                writeln(format("    %%%d = fcmp oge double %%%d, %%%d", cmp, lhs, rhs));
                 break;
             case TokenKind.GT:
-                writeln("\tbgt\t.", line);
+                writeln(format("    %%%d = fcmp ogt double %%%d, %%%d", cmp, lhs, rhs));
                 break;
             default:
                 throw new Exception("BAD RELOP");
         }
+        writeln(format("    br i1 %%%d, label %%.%u, label %%%s", cmp, line, label1));
+        writeln("  ", label1, ":");
         super.codegen();
     }
 }
@@ -502,47 +434,43 @@ class For : Node {
         ident_stack ~= ident;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.left.codegen();
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvstr.f64\td", (cast(Expr)(left.left.left)).result, ", [r0]");
-        if (symtab.edition >= Edition.Fourth) { // check for empty for
-            writeln("\tvpush\t{ d", (cast(Expr)(left.left.left)).result, " }");
-            Expr.clearRegs();
-            left.right.codegen();
-            writeln("\tvpush\t{ d", (cast(Expr)(left.right)).result, " }");
-            Expr.clearRegs();
-            left.left.right.codegen();
-            writeln("\tvpop\t{ d1 }");
-            writeln("\tvpop\t{ d0 }");
-            writeln("\tvcmp.f64\td1, #0.0");
-            writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-            writeln("\tvcmpgt.f64\td0, d", (cast(Expr)(left.left.right)).result);
-            writeln("\tvcmplt.f64\td", (cast(Expr)(left.left.right)).result, ", d0");
-            writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-            writeln("\tbgt\t._for_end", id);
-        }
-        writeln("\tb\t._for_loop", id);
-        writeln("._for_incr", id, ":");
-        Expr.clearRegs();
-        left.right.codegen();
-        writeln("\tvmov.f64\td1, d", (cast(Expr)(left.right)).result);
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvldr.f64\td0, [r0]");
-        writeln("\tvadd.f64\td0, d0, d1");
-        writeln("\tvpush\t{ d0, d1 }");
-        Expr.clearRegs();
         left.left.right.codegen();
-        writeln("\tvpop\t{ d0, d1 }");
-        writeln("\tvcmp.f64\td1, #0.0");
-        writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-        writeln("\tvcmpgt.f64\td0, d", (cast(Expr)(left.left.right)).result);
-        writeln("\tvcmplt.f64\td", (cast(Expr)(left.left.right)).result, ", d0");
-        writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-        writeln("\tbgt\t._for_end", id);
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvstr.f64\td0, [r0]");
-        writeln("._for_loop", id, ":");
+        left.right.codegen();
+        auto begin = (cast(Expr)(left.left.left)).result, 
+            end = (cast(Expr)(left.left.right)).result, 
+            step = (cast(Expr)(left.right)).result;
+        writeln(format("    store double %%%d, double* %%%s", begin, symtab.getId(ident)));
+        if (symtab.edition >= Edition.Fourth) { // check for empty for
+            auto cmp_pos = reg;
+            writeln(format("    %%%d = fcmp ogt double %%%d, %%%d", cmp_pos, begin, end));
+            auto cmp_neg = reg;
+            writeln(format("    %%%d = fcmp olt double %%%d, %%%d", cmp_neg, begin, end));
+            auto cmp_step = reg;
+            writeln(format("    %%%d = fcmp ogt double %%%d, 0.0", cmp_step, step));
+            auto cmp_sel = reg;
+            writeln(format("    %%%d = select i1 %%%d, i1 %%%d, i1 %%%d", cmp_sel, cmp_step, cmp_pos, cmp_neg));
+            writeln(format("    br i1 %%%d, label %%for_exit%d, label %%for_loop%d", cmp_sel, id, id));
+        }
+        else {
+            writeln(format("    br label %%for_loop%d", id));
+        }
+        writeln(format("  for_incr%d:",id));
+        auto loop_var2 = reg;
+        writeln(format("    %%%d = load double, double* %%%s", loop_var2, symtab.getId(ident)));
+        auto loop_incr = reg;
+        writeln(format("    %%%d = fadd double %%%d, %%%d", loop_incr, loop_var2, step));
+        writeln(format("    store double %%%d, double* %%%s", loop_incr, symtab.getId(ident)));
+        auto cmp_pos = reg;
+        writeln(format("    %%%d = fcmp ogt double %%%d, %%%d", cmp_pos, loop_incr, end));
+        auto cmp_neg = reg;
+        writeln(format("    %%%d = fcmp olt double %%%d, %%%d", cmp_neg, loop_incr, end));
+        auto cmp_step = reg;
+        writeln(format("    %%%d = fcmp ogt double %%%d, 0.0", cmp_step, step));
+        auto cmp_sel = reg;
+        writeln(format("    %%%d = select i1 %%%d, i1 %%%d, i1 %%%d", cmp_sel, cmp_step, cmp_pos, cmp_neg));
+        writeln(format("    br i1 %%%d, label %%for_exit%d, label %%for_loop%d", cmp_sel, id, id));
+        writeln(format("  for_loop%d:", id));
         super.codegen();
     }
 }
@@ -559,8 +487,8 @@ class Next : Node {
         }
     }
     override void codegen() {
-        writeln("\tb\t._for_incr", for_id);
-        writeln("._for_end", for_id, ":");
+        writeln(format("    br label %%for_incr%d", for_id));
+        writeln(format("  for_exit%d:", for_id));
         super.codegen();
     }
 }
@@ -573,14 +501,10 @@ class Restore : Node {
     }
     override void codegen() {
         if (restore) {
-            writeln("\tadrl\tr0, ._data_ptr");
-            writeln("\tmov\tr1, #0");
-            writeln("\tstr\tr1, [r0]");
+            writeln("    store i32 0, i32* %_DATA_NUM_P");
         }
         if (restore_str) {
-            writeln("\tadrl\tr0, ._data_str_ptr");
-            writeln("\tmov\tr1, #0");
-            writeln("\tstr\tr1, [r0]");
+            writeln("    store i32 0, i32* %_DATA_STR_P");
         }
         super.codegen();
     }
@@ -594,32 +518,32 @@ class LetString : Node {
         symtab.initializeString(ident, true);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
-        writeln("\tldr\tr0, [r0]");
-        writeln("\tteq\tr0, #0");
-        writeln("\tblne\tfree(PLT)");
+        auto r = reg;
+        writeln(format("    %%%d = load i8*, i8** %%%s_", r, symtab.getId(ident)));
+        writeln(format("    call void @free(i8* %%%d)", r));
         left.codegen();
-        writeln("\tbl\tstrdup(PLT)");
-        writeln("\tadrl\tr1, .", symtab.getId(ident), "_");
-        writeln("\tstr\tr0, [r1]");
+        r = reg;
+        writeln(format("    %%%d = call i8* @str_dup(i8* %%%d)", r, (cast(Expr)left).result));
+        writeln(format("    store i8* %%%d, i8** %%%s_", r, symtab.getId(ident)));
         super.codegen();
     }
 }
 
 class InputString : Node {
     private int ident;
+    public immutable uint STRING_MAX = 256;
     this(int id) {
         ident = id;
         symtab.initializeString(ident, true);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
-        writeln("\tldr\tr0, [r0]");
-        writeln("\tteq\tr0, #0");
-        writeln("\tblne\tfree(PLT)");
-        writeln("\tbl\tinput_string(PLT)");
-        writeln("\tadrl\tr1, .", symtab.getId(ident), "_");
-        writeln("\tstr\tr0, [r1]");
+        auto r = reg;
+        writeln(format("    %%%d = load i8*, i8** %%%s_", r, symtab.getId(ident)));
+        writeln(format("    call void @free(i8* %%%d)", r));
+        auto str = reg;
+        writeln(format("    %%%d = call i8* @malloc(i64 %u)", str, STRING_MAX));
+        writeln(format("    call void @read_string(i8* %%%d, i32 %u)", str, STRING_MAX));
+        writeln(format("    store i8* %%%d, i8** %%%s_", str, symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -632,27 +556,10 @@ class ReadString : Node {
         symtab.useData(false, true);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
-        writeln("\tldr\tr0, [r0]");
-        writeln("\tteq\tr0, #0");
-        writeln("\tblne\tfree(PLT)");
-        writeln("\tadrl\tr0, ._data_str_ptr");
-        writeln("\tadrl\tr1, ._data_str_max");
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tldr\tr3, [r1]");
-        writeln("\tcmp\tr2, r3");
-        writeln("\tmovge\tr0, #1"); // error: out of data
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._str");
-        writeln("\tadd\tr3, r1, r2, LSL #2");
-        writeln("\tadd\tr2, r2, #1");
-        writeln("\tstr\tr2, [r0]");
-        writeln("\tldr\tr0, [r3]");
-        writeln("\tbl\tstrdup(PLT)");
-        writeln("\tadrl\tr1, .", symtab.getId(ident), "_");
-        writeln("\tstr\tr0, [r1]");
+        auto r = reg;
+        writeln(format("    %%%d = load i8*, i8** %%%s_", r, symtab.getId(ident)));
+        writeln(format("    call void @free(i8* %%%d)", r));
+        writeln(format("    store i8* %%%d, i8** %%%s_", readStringData(this), symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -666,40 +573,15 @@ class ReadDimString : Node {
         symtab.useData(false, true);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)left).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
-        writeln("\tadd\tr1, r1, r0, LSL #2");
-        writeln("\tpush\t{ r1 }");
-        writeln("\tldr\tr0, [r1]");
-        writeln("\tteq\tr0, #0");
-        writeln("\tblne\tfree(PLT)");
-        writeln("\tadrl\tr0, ._data_str_ptr");
-        writeln("\tadrl\tr1, ._data_str_max");
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tldr\tr3, [r1]");
-        writeln("\tcmp\tr2, r3");
-        writeln("\tmovge\tr0, #1"); // error: out of data
-        writeln("\tmovge\tr1, #", symtab.line & 0xff00);
-        writeln("\torrge\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblge\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._str");
-        writeln("\tadd\tr3, r1, r2, LSL #2");
-        writeln("\tadd\tr2, r2, #1");
-        writeln("\tstr\tr2, [r0]");
-        writeln("\tldr\tr0, [r3]");
-        writeln("\tbl\tstrdup(PLT)");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tstr\tr0, [r1]");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)left).result));
+        auto gep = gepStringDim(this, ident, idx);
+        auto str = reg;
+        writeln(format("    %%%d = load i8*, i8** %%%d", str, gep));
+        writeln(format("    call void @free(i8* %%%d)", str));
+        auto data = readStringData(this);
+        writeln(format("    store i8* %%%d, i8** %%%d", data, gep));
         super.codegen();
     }
 }
@@ -712,27 +594,15 @@ class LetDimString : Node {
         symtab.initializeDimString(ident);
     }
     override void codegen() {
-        Expr.clearRegs();
         left.left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left.left)).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
-        writeln("\tadd\tr1, r1, r0, LSL #2");
-        writeln("\tpush\t{ r1 }");
-        writeln("\tldr\tr0, [r1]");
-        writeln("\tteq\tr0, #0");
-        writeln("\tblne\tfree(PLT)");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)(left.left)).result));
+        auto gep = gepStringDim(this, ident, idx);
+        auto str = reg;
+        writeln(format("    %%%d = load i8*, i8** %%%d", str, gep));
+        writeln(format("    call void @free(i8* %%%d)", str));
         left.right.codegen();
-        writeln("\tbl\tstrdup(PLT)");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tstr\tr0, [r1]");
+        writeln(format("    store i8* %%%d, i8** %%%d", (cast(Expr)(left.right)).result, gep));
         super.codegen();
     }
 }
@@ -746,13 +616,13 @@ class ChangeFromString : Node {
         symtab.initializeDim(dim_id);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(str_id), "_");
-        writeln("\tadrl\tr1, ._data", symtab.getId(dim_id));
-        writeln("\tadrl\tr2, ._size", symtab.getId(dim_id));
-        writeln("\tldr\tr2, [r2]");
-        writeln("\tmov\tr3, #", symtab.line & 0xff00);
-        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
-        writeln("\tbl\tchange_from_string(PLT)");
+        auto gep = reg;
+        writeln(format("    %%%d = getelementptr i8*, i8** %%%s_, i32 0 ", gep, symtab.getId(str_id)));
+        auto data = reg;
+        writeln(format("    %%%d = bitcast [ %d x double ]* %%_DATA1_%s to double*",
+            data, symtab.DimSize(dim_id) + 1, symtab.getId(dim_id)));
+        writeln(format("    call void @change_from_string(i8* %%%d, double* %%%d, i32 %d, i16 %d)",
+            gep, data, symtab.DimSize(dim_id), symtab.line));
         super.codegen();
     }
 }
@@ -766,13 +636,13 @@ class ChangeToString : Node {
         symtab.initializeDim(dim_id);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(str_id), "_");
-        writeln("\tadrl\tr1, ._data", symtab.getId(dim_id));
-        writeln("\tadrl\tr2, ._size", symtab.getId(dim_id));
-        writeln("\tldr\tr2, [r2]");
-        writeln("\tmov\tr3, #", symtab.line & 0xff00);
-        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
-        writeln("\tbl\tchange_to_string(PLT)");
+        auto gep = reg;
+        writeln(format("    %%%d = getelementptr i8*, i8** %%%s_, i32 0 ", gep, symtab.getId(str_id)));
+        auto data = reg;
+        writeln(format("    %%%d = bitcast [ %d x double ]* %%_DATA1_%s to double*",
+            data, symtab.DimSize(dim_id) + 1, symtab.getId(dim_id)));
+        writeln(format("    call void @change_to_string(i8* %%%d, double* %%%d, i32 %d, i16 %d)",
+            gep, data, symtab.DimSize(dim_id), symtab.line));
         super.codegen();
     }
 }
@@ -787,28 +657,25 @@ class OnGoto : Node {
         id = ++ongoto_id;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left)).result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tadrl\tr0, ._ongoto_jmp", id);
-        writeln("\tcmp\tr1, #", lines.length);
-        writeln("\tmovhi\tr1, #0");
-        writeln("\tadd\tpc, r0, r1, LSL#2");
-        writeln("._ongoto_jmp", id, ":");
-        writeln("\tb\t._ongoto_range", id);
-        foreach(l; lines) {
+        auto jmp = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", jmp, (cast(Expr)left).result));
+        auto label1 = label;
+        writeln(format("    switch i32 %%%d, label %%%s [", jmp, label1));
+        foreach(i, l; lines) {
             ushort line = cast(ushort)l;
             if (!symtab.referencedLine(line)) {
                 throw new Exception("BAD LINE");
             }
-            writeln("\tb\t.", line);
+            writeln(format("      i32 %d, label %%.%u", i + 1, line));
         }
-        writeln("._ongoto_range", id, ":");
-        writeln("\tmov\tr0, #11"); // error: out of range
-        writeln("\tmov\tr1, #", symtab.line & 0xff00);
-        writeln("\torr\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tbl\truntime_error(PLT)");
+        writeln("    ]");
+        writeln("  ", label1, ":");
+        writeln(format("    call void @runtime_error(i32 9, i16 %u)", symtab.line));
+        writeln("    unreachable");
+        //auto bump = reg;
+        //writeln("    unreachable\t; %", bump);
+        status = Control.Unreachable;
         super.codegen();
     }
 }
@@ -827,34 +694,36 @@ class IfString : Node {
             throw new Exception("BAD LINE");
         }
         left.left.codegen();
-        writeln("\tpush\t{ r0 }");
         left.right.codegen();
-        writeln("\tmov\tr1, r0");
-        writeln("\tpop\t{ r0 }");
-        writeln("\tbl\tstrcmp(PLT)");
-        writeln("\tcmp\tr0, #0");
+        auto cmp1 = reg;
+        writeln(format("    %%%d = call i32 @strcmp(i8* %%%d, i8* %%%d)",
+            cmp1, (cast(Expr)(left.left)).result, (cast(Expr)(left.right)).result));
+        auto cmp2 = reg;
         switch (relop) {
             case TokenKind.EQ:
-                writeln("\tbeq\t.", line);
+                writeln(format("    %%%d = icmp eq i32 %%%d, 0", cmp2, cmp1));
                 break;
             case TokenKind.NE:
-                writeln("\tbne\t.", line);
+                writeln(format("    %%%d = icmp ne i32 %%%d, 0", cmp2, cmp1));
                 break;
             case TokenKind.LT:
-                writeln("\tblt\t.", line);
+                writeln(format("    %%%d = icmp slt i32 %%%d, 0", cmp2, cmp1));
                 break;
             case TokenKind.LE:
-                writeln("\tble\t.", line);
+                writeln(format("    %%%d = icmp sle i32 %%%d, 0", cmp2, cmp1));
                 break;
             case TokenKind.GE:
-                writeln("\tbge\t.", line);
+                writeln(format("    %%%d = icmp sge i32 %%%d, 0", cmp2, cmp1));
                 break;
             case TokenKind.GT:
-                writeln("\tbgt\t.", line);
+                writeln(format("    %%%d = icmp sgt i32 %%%d, 0", cmp2, cmp1));
                 break;
             default:
                 throw new Exception("BAD RELOP");
         }
+        auto label1 = label;
+        writeln(format("    br i1 %%%d, label %%.%u, label %%%s", cmp2, line, label1));
+        writeln("  ", label1, ":");
         super.codegen();
     }
 }
@@ -864,8 +733,10 @@ class Randomize : Node {
         // empty
     }
     override void codegen() {
-        writeln("\tbl\tclock(PLT)");
-        writeln("\tbl\trandom_lcg(PLT)");
+        auto r = reg;
+        writeln(format("    %%%d = call i32 @time(i8* null)", r));
+        auto dummy = reg;
+        writeln(format("    %%%d = call double @random_lcg(i32 %%%d)", dummy, r));
         super.codegen();
     }
 }

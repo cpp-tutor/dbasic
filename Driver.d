@@ -32,10 +32,10 @@ int main(const string[] args) {
     }
     if (!symtab.errors) {
         auto generate = {
-            head.prelude();
-            head.codegen();
-            head.interlude();
+            head.prolog();
             symtab.codegen();
+            head.codegen();
+            head.epilog();
         };
         msg = collectExceptionMsg(generate());
         if (msg) {

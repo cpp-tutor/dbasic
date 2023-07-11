@@ -1,3 +1,8 @@
 #!/bin/sh
 
-./dbasic < $1 | arm-linux-gnueabihf-gcc -mcpu=arm710t -mfpu=vfp -marm -mfloat-abi=hard -O3 runtime/basic_lib.c -x assembler - -lm && QEMU_LD_PREFIX=/usr/arm-linux-gnueabihf qemu-arm ./a.out
+if [ ! -f "./runtime/basic_lib.ll" ] ; then
+  echo "Creating runtime/basic_lib.ll"
+  clang -S -emit-llvm -o ./runtime/basic_lib.ll ./runtime/basic_lib.c
+fi
+
+./dbasic 4 < $1 > run_basic.ll && clang -O3 -o run_basic run_basic.ll ./runtime/basic_lib.ll -lm && ./run_basic

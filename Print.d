@@ -1,24 +1,25 @@
 import std.stdio : writeln;
+import std.format : format;
 import Node : Node;
 import Expr : Expr, StringExpr;
 
 class NewLine : Node {
     override void codegen() {
-        writeln("\tbl\tprint_newline(PLT)");
+        writeln("    call void @print_newline()");
         super.codegen();
     }
 }
 
 class Comma : Node {
     override void codegen() {
-        writeln("\tbl\tprint_comma(PLT)");
+        writeln("    call void @print_comma()");
         super.codegen();
     }
 }
 
 class SemiColon : Node {
     override void codegen() {
-        writeln("\tbl\tprint_semicolon(PLT)");
+        writeln("    call void @print_semicolon()");
         super.codegen();
     }
 }
@@ -29,8 +30,9 @@ class String : Node {
         str = s;
     }
     override void codegen() {
-        writeln("\tadrl\tr0, ._s", str);
-        writeln("\tbl\tprint_string(PLT)");
+        auto r = reg;
+        writeln(format("    %%%d = bitcast [ %d x i8 ]* @_S%d to i8*", r, symtab.getStrLen(str) + 1, str));
+        writeln(format("    call void @print_string(i8* %%%d)", r));
         super.codegen();
     }
 }
@@ -40,10 +42,8 @@ class PrintExpr : Node {
         left = e;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvmov.f64\td0, d", (cast(Expr)left).result);
-        writeln("\tbl\tprint_number(PLT)");
+        writeln(format("    call void @print_number(double %%%d)", (cast(Expr)left).result));
         super.codegen();
     }
 }
@@ -54,7 +54,7 @@ class PrintString : Node {
     }
     override void codegen() {
         left.codegen();
-        writeln("\tbl\tprint_string(PLT)");
+        writeln(format("    call void @print_string(i8* %%%d)", (cast(Expr)left).result));
         super.codegen();
     }
 }
@@ -64,11 +64,10 @@ class PrintTab : Node {
         left = e;
     }
     override void codegen() {
-        Expr.clearRegs();
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)(left)).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tbl\tprint_tab(PLT)");
+        auto r = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", r, (cast(Expr)left).result));
+        writeln(format("    call void @print_tab(i32 %%%d)", r));
         super.codegen();
     }
 }

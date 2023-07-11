@@ -1,10 +1,8 @@
 # dbasic
 
-Modern implementation of the original Dartmouth BASIC compilers from the 1960s in the D programming language.
+Modern implementation of the original Dartmouth BASIC compilers from the 1960s in the D programming language. This version compiles from BASIC source to LLVM IR (in textual format).
 
-This software is currently under a state of rapid development and should therefore be considered alpha quaality.
-
-**Important Note**: The original version targeting 32-bit ARM is being moved to a separate branch (target-arm32), and it is unlikely much further work will be done. The focus of development is currently to support an LLVM target which will ultimately allow for compilation to native code (instead of ARM assembly language), as well as use of the LLVM optimizer.
+This software is currently under a state of rapid development and should therefore be considered alpha quality. Please be aware that there are currently many issues with the code under both Linux and Windows.
 
 ## Building
 
@@ -12,7 +10,7 @@ This software is currently under a state of rapid development and should therefo
 
 **Prerequisites:**
 
-* Bison parser generator `win_bison.exe` from https://github.com/lexxmark/winflexbison (to compile `grammar.y`). Note that a patch to the D skeleton file `d.m4` is currently required (see below); if running or patching WinFlexBison is not possible simply copy `Parser.d` out of the `autogen` directory.
+* Bison parser generator `win_bison.exe` from https://github.com/lexxmark/winflexbison (to compile `grammar.y`). Note that a patch to the D skeleton file `d.m4` is currently required (see below); if running or patching WinFlexBison is not possible simply copy `Parser.d` out of the `autogen` directory and remember to time-stamp it.
 
 * Recent D compiler `dmd.exe`, tested with Digital Mars D (DMD) v2.098.1 from https://dlang.org/download.html#dmd
 
@@ -38,7 +36,7 @@ This software is currently under a state of rapid development and should therefo
 
 **Prerequisites:**
 
-* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro (3.8.2.x or above) may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory.
+* Recent `bison` (ideally trunk from https://github.com/akimd/bison), versions available with a "testing" or rolling release distro (3.8.2 or above) may work. Note that a patch to the D skeleton file `/usr/share/bison/skeletons/d.m4` is currently required (see below); if running or patching `bison` is not possible simply copy `Parser.d` out of the `autogen` directory and `touch` it.
 
 * Recent D compiler, tested with both GNU `gdc` and LLVM `ldc`
 
@@ -90,80 +88,42 @@ The file `data\skeletons\d.m4` (WinFlexBison) or `/usr/share/bison/skeletons/d.m
 
 ### Windows
 
-The executable `dbasic.exe` reads from standard input and writes to standard output, optionally with the required numerical Language Edition (only 1-3 currently supported).
+The executable `dbasic.exe` reads from standard input and writes to standard output, optionally with the required numerical Language Edition (only 1-4 currently supported).
 
-The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.s`:
-
-```
-dbasic 1 < examples\example-p12.bas > test.s
-```
-
-The output is GNU 32-bit ARM assembly language which can be compiled using `gcc`, either on a native hard-float ARM distro such as Raspbian (32-bit), or under a hard-float emulated enviroment using `qemu-system-arm.exe` see https://dominoc925.blogspot.om/2019/09/how-to-emulate-raspbian-os-in-qemu-on.html
-
-To get the assembly language output *to* the native/virtual ARM machine a suitable Samba mount could be set up.
-
-To compile the support library `basic_lib.s` (this only needs to be performed once) use:
+The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.ll`:
 
 ```
-gcc -mcpu=arm710t -mfpu=vfp -marm -mfloat-abi=hard -S -O3 runtime/basic_lib.c
+dbasic 1 < examples\example-p12.bas > test.ll
 ```
 
-To build and run `test` from `test.s` use:
+The output is LLVM IR which can be compiled by (a recent) clang, see https://releases.llvm.org/download.html
+
+Compile the IR with
 
 ```
-gcc -o test test.s basic_lib.s -lm
-./test
+clang.exe -O3 test.ll runtime\basic_lib.c
 ```
 
-### Linux (Debian/Ubuntu)
+And run `a.exe`. Alternatively, use the `runtime\run.bat` shell script to automate this process.
 
-To compile the assembly language output and support library, the ARM cross-compiler toolchain is required, including `arm-linux-gnueabihf-gcc`, from issuing `apt install gcc-arm-linux-gnueabihf libc-dev-armhf-cross`
+### Linux
 
-To perform userspace emulation of an ARM processor, the executable `qemu-arm` is required, from issuing `apt install qemu-user`
+It appears that clang under Linux is more picky about type safety, so not all of the programs in the `examples` directory will currently compile.
 
-The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.s`:
-
-```
-./dbasic 1 < examples/example-p12.bas > test.s
-```
-
-To compile the support library `basic_lib.s` (this only needs to be performed once) use:
+The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.ll`:
 
 ```
-arm-linux-gnueabihf-gcc -mcpu=arm710t -mfpu=vfp -marm -mfloat-abi=hard -O3 -S runtime/basic_lib.c
+./dbasic 1 < examples/example-p12.bas > test.ll
 ```
 
-To build and run `test` from `test.s` use:
+Then to create an executable use:
 
 ```
-arm-linux-gnueabihf-gcc -o test test.s basic_lib.s -lm
-QEMU_LD_PREFIX=/usr/arm-linux-gnueabihf qemu-arm ./test
+clang -O3 test.ll runtime/basic_lib.c -lm
+./a.out
 ```
 
-### Linux (Arch-based)
-
-To compile the assembly language output and support library, the ARM cross-compiler toolchain is required, including `arm-none-linux-gnueabihf-gcc`, from AUR package `arm-none-linux-gnueabihf-toolchain-bin`
-
-To perform userspace emulation of an ARM processor, the executable `qemu-arm` is required, from Extra package `qemu-user`
-
-The following command will compile the first example program `example-p12.bas` from the `examples` directory with First Edition compatibility, outputting the result to `test.s`:
-
-```
-./dbasic 1 < examples/example-p12.bas > test.s
-```
-
-To compile the support library `basic_lib.s` (this only needs to be performed once) use:
-
-```
-arm-none-linux-gnueabihf-gcc -mcpu=arm710t -mfpu=vfp -marm -mfloat-abi=hard -O3 -S runtime/basic_lib.c
-```
-
-To build and run `test` from `test.s` use:
-
-```
-arm-none-linux-gnueabihf-gcc -o test test.s basic_lib.s -lm
-QEMU_LD_PREFIX=/usr/arm-none-linux-gnueabihf/libc qemu-arm ./test
-```
+To automate this process, use the `runtime/run-linux.sh` shell script.
 
 ## Resources
 
@@ -181,18 +141,8 @@ The intention is to recreate the original programming environment that existed i
 
 Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is envisaged; there is a compiler switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords up to Basic The Fourth (1968) are available; the current focus is on improving the quality of the code supporting this Edition.
 
-* 2022/03/03: Tag 0.10.1 (hopefully complete) implementation of Basic The First (May 1964)
-
-* 2022/05/02: Tag 0.20.1 (hopefully complete) implementation of Basic The Second (October 1964, originally known as CARDBASIC).
-
-* 2022/05/15: Tag 0.30.1 (hopefully complete) implementation of Basic The Third (1966)
-
-* 2022/06/09: Tag 0.40.1 (almost complete pending code and specification review) implementation of Basic The Fourth (1968)
-
-* 2022/06/11: Tag 0.40.2 (bug fixes and feature improvements) Basic The Fourth update
-
-* 2023/07/01: Tag 0.40.3 (bug fixes and code improvements) Basic The Fourth update
+* 2023/07/11: Tag 0.90.0 (WIP) implementation of Basic The Fourth (some matrix operations not implemented in LLVM yet) 
 
 ## Bugs
 
-Please do report bugs, together with correct or incorrect BASIC input files. I would recommend testing against the latest release or master branch, even if an earlier BASIC Edition is being used, as bugs will have been fixed while new features are being added.
+Please do report bugs, together with correct or incorrect BASIC input files. Note that string DATA is not supported under Linux, and there are issues with code reachability errors. I would recommend testing against the latest release or master branch, even if an earlier BASIC Edition is being used, as bugs will have been fixed while new features are being added.

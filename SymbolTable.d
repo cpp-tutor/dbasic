@@ -1,7 +1,10 @@
 import std.stdio : writeln, stderr;
-import std.algorithm : countUntil;
+import std.algorithm : countUntil, map;
 import std.typecons : Tuple, tuple;
 import std.variant : Variant;
+import std.format : format;
+import std.conv : to;
+import std.string : indexOf;
 import Expr : Expr;
 import Node : For;
 
@@ -10,7 +13,7 @@ public enum Edition {
 }
 
 class SymbolTable {
-    private enum Line { Unknown, Exists, BadRef, Referenced };
+    private enum Line { Unknown, Exists, BadRef, Referenced }
     private Line[ushort] lines;
     private int current_line = -1;
     private int nerrs = 0;
@@ -24,11 +27,14 @@ class SymbolTable {
     public struct Function { int[] param_idents; Expr fn_expr; int fn_line; ulong nparams; }
     private Function[int] functions;
     private bool[int] vars, mats, strings;
+    immutable int max_depth = 8;
+    private int ngosubs = 0;
+    private bool[int] returns;
     private int basic_edition;
     this(Edition edition) {
         basic_edition = edition;
     }
-    @property enum Edition edition() {
+    @property Edition edition() {
         return cast(Edition)basic_edition;
     }
     void error(string msg) {
@@ -246,74 +252,94 @@ class SymbolTable {
             return functions[name_id];
         }
     }
+    auto getStrLen(int str_id) { // hack for necessary bitcast
+        return string_list[str_id].length;
+    }
+    @property auto dataN() { // hacks for get element pointer
+        return data_num.length;
+    }
+    @property auto dataStrN() {
+        return data_str.length;
+    }
+    @property auto gosub() {
+        returns[++ngosubs] = true;
+        return ngosubs;
+    }
+    auto getReturns() {
+        return returns;
+    }
+    void simpleFunction(int r) {
+        returns[r] = false;
+    }
+    auto DimSize(int id) {
+        return dims[id];
+    }
+    auto Dim2Size(int id) {
+        return dims2[id];
+    }
+    auto strDimSize(int id) {
+        return str_dims[id];
+    }
     void codegen() {
-        foreach (k, _; vars) {
-            writeln(".", id_list[k], ":\n\t.double\t0.0");
-        }
-        if (strings.length) {
-            foreach (s, _; strings) {
-                writeln(".", id_list[s], "_:\n\t.word\t0");
-            }
-            writeln("\t.balign 8");
-        }
+        auto g = (double value) {
+            string s = to!string(value);
+            return (s.indexOf('.') != -1) ? s : s ~ ".0";
+        };
         foreach (i, c; constant_list) {
-            writeln("._c", i, ":\n\t.double\t", c);
-        }
-        if (data_num.length || data_str.length) {
-            writeln("\t.balign 8");
-            writeln("._data_ptr:\n\t.word\t0");
-            writeln("._data_max:\n\t.word\t", data_num.length);
-            writeln("._data_str_ptr:\n\t.word\t0");
-            writeln("._data_str_max:\n\t.word\t", data_str.length);
-            // note: no gap and .balign 8
-            if (data_num.length) {
-                writeln("._data:");
-                foreach (n; data_num) {
-                    writeln("\t.double\t", n);
-                }
-            }
-            if (data_str.length) {
-                writeln("._str:");
-                foreach (s; data_str) {
-                    writeln("\t.word\t._s", s);
-                }
-            }
-        }
-        foreach (k, v; dims) {
-            writeln("._size", id_list[k], ":\n\t.word\t", v);
-            writeln("\t.balign 8");
-            writeln("._data", id_list[k], ":");
-            for (int i = 0; i <= v; ++i) { // note: <=
-                writeln("\t.double\t0.0");
-            }
-        }
-        foreach (k, v; dims2) {
-            writeln("._size2", id_list[k], ":\n\t.word\t", v[0], "\n\t.word\t", v[1]);
-            writeln("\t.balign 8");
-            writeln("._data2", id_list[k], ":");
-            for (int i = 0; i < ((v[0] + 1) * (v[1] + 1)); ++i) {
-                writeln("\t.double\t0.0");
-            }
-        }
-        foreach (k, v; str_dims) {
-            writeln("._sizeS", id_list[k], ":\n\t.word\t", v);
-            writeln("._dataS", id_list[k], ":");
-            for (int i = 0; i <= v; ++i) { // note: <=
-                writeln("\t.word\t0");
-            }
-        }
-        if (mats.length) {
-            writeln("._mat_result:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
-            writeln("._mat_param1:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
-            writeln("._mat_param2:\n\t.word\t0\n\t.word\t0\n\t.word\t0");
-            writeln("\t.balign 8");
-        }
-        foreach (k, _; mats) {
-            writeln("._mat", id_list[k], ":\n\t.word\t0\n\t.word\t0");
+            writeln(format("@_C%u = private constant double %s", i, g(c)));
         }
         foreach (i, s; string_list) {
-            writeln("._s", i, ":\n\t.asciz\t\"", s, "\"");
-            writeln("\t.balign 4");
+            writeln(format("@_S%u = private constant [ %u x i8 ] c\"%s\\00\"", i, s.length + 1, s));
+        }
+        if (dataN) {
+            auto gen = data_num.map!(g);
+            writeln(format("@_DATA = private constant [ %u x double ] [ %-(double %s, %) ]", dataN, gen));
+        }
+        if (dataStrN) {
+            writeln(format("@_DATA_STR = private constant [ %u x i8* ] [ %-(i8* @_S%d, %) ]", dataStrN, data_str));
+        }
+        writeln("\ndefine i32 @main() {");
+        writeln("  entry:");
+        foreach (k, _; vars) {
+            writeln(format("    %%%s = alloca double", id_list[k]));
+            writeln(format("    store double 0.0, double* %%%s", id_list[k]));
+        }
+        foreach (k, _; strings) {
+            writeln(format("    %%%s_ = alloca i8*", id_list[k]));
+            writeln(format("    store i8* null, i8** %%%s_", id_list[k]));
+        }
+        if (data_num.length) {
+            writeln("    %_DATA_NUM_P = alloca i32");
+            writeln("    store i32 0, i32* %_DATA_NUM_P");
+        }
+        if (data_str.length) {
+            writeln("    %_DATA_STR_P = alloca i32");
+            writeln("    store i32 0, i32* %_DATA_STR_P");
+        }
+        foreach (k, v; dims) {
+            writeln(format("    %%_DATA1_%s = alloca [ %d x double ]", id_list[k], v + 1));
+            writeln(format("    store [ %d x double ] zeroinitializer, [ %d x double ]* %%_DATA1_%s",
+                v + 1, v + 1, id_list[k]));
+        }
+        foreach (k, v; dims2) {
+            writeln(format("    %%_DATA2_%s = alloca [ %d x double ]", id_list[k], (v[0] + 1) * (v[1] + 1)));
+            writeln(format("    store [ %d x double ] zeroinitializer, [ %d x double ]* %%_DATA2_%s",
+                (v[0] + 1) * (v[1] + 1), (v[0] + 1) * (v[1] + 1), id_list[k]));
+        }
+        foreach (k, v; str_dims) {
+            writeln(format("    %%_DATAS_%s = alloca [ %d x i8* ]", id_list[k], v + 1));
+            writeln(format("    store [ %d x i8* ] zeroinitializer, [ %d x i8* ]* %%_DATAS_%s",
+                v + 1, v + 1, id_list[k]));
+        }
+        foreach (k, _; mats) {
+            writeln(format("    %%_MAT_%s = alloca %%struct.Dims", id_list[k]));
+            writeln(format("    store %%struct.Dims zeroinitializer, %%struct.Dims* %%_MAT_%s", id_list[k]));
+        }
+        if (returns.length) { // FIXME: shouldn't generate for only simple functions
+            writeln(format("    %%_RETURN = alloca [ %d x i32 ]", max_depth));
+            writeln(format("    store [ %d x i32 ] zeroinitializer, [ %d x i32 ]* %%_RETURN", max_depth, max_depth));
+            writeln("    %_RETURN_P = alloca i32");
+            writeln("    store i32 0, i32* %_RETURN_P");
         }
     }
 }

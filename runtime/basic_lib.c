@@ -4,7 +4,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-extern int basic_run();
+#define TmpBufSz 256
 
 struct Dims {
     unsigned rows;
@@ -17,20 +17,12 @@ struct Mat {
     double *data;
 };
 
-struct Data {
-    unsigned data_p;
-    unsigned data_m;
-    unsigned data_p_s;
-    unsigned data_m_s;
-    const double data[];
-};
-
-unsigned pos = 0, vpos = 0;
-const unsigned TmpBufSz = 256, PrintWidth = 75, Comma = 15, SemiColon = 3, MaxString = 255;
+int pos = 0, vpos = 0;
+const int PrintWidth = 75, Comma = 15, SemiColon = 3;
 
 void print_string(const char *s) {
     while (*s) {
-        while (*s && (pos < 75)) {
+        while (*s && (pos < PrintWidth)) {
             putchar(*s++);
             ++pos;
         }
@@ -78,7 +70,7 @@ void print_semicolon() {
 }
 
 void print_tab(unsigned tab) {
-    while(pos < tab && pos < PrintWidth) {
+    while (pos < tab && pos < PrintWidth) {
         putchar(' ');
         ++pos;
     }
@@ -90,10 +82,10 @@ void runtime_error(int err, short line) {
             print_string("OUT OF DATA");
             break;
         case 2:
-            print_string("END WITHIN GOSUB/FN");
+            print_string("TOO MANY NESTED CALLS");
             break;
         case 3:
-            print_string("NOT WITHIN GOSUB/FN");
+            print_string("NOT IN GOSUB");
             break;
         case 4:
             print_string("INDEX OUT OF BOUNDS");
@@ -107,14 +99,11 @@ void runtime_error(int err, short line) {
         case 7:
             print_string("BAD MATRIX SIZE");
             break;
-        case 10:
-            print_string("STRING TOO LONG");
-            break;
-        case 11:
-            print_string("ON GOTO OUT OF RANGE");
-            break;
-        case 12:
+        case 8:
             print_string("UNINITIALIZED STRING");
+            break;
+        case 9:
+            print_string("OUT OF RANGE");
             break;
         default:
             print_string("RUNTIME ERROR");
@@ -126,6 +115,14 @@ void runtime_error(int err, short line) {
     }
     print_newline();
     exit(err);
+}
+
+char *str_dup(char *s) {
+    char *p = malloc(strlen(s) + 1);
+    if (p) {
+        strcpy(p, s);
+    }
+    return p;
 }
 
 void mat_print(double *d, unsigned sz, bool packed, short l) {
@@ -195,42 +192,42 @@ void mat_print_str(char **str, bool packed) {
     }
 }
 
-void mat_read(double *d, unsigned sz, struct Data *rd, short l) {
+void mat_read(double *d, unsigned sz, double *data, unsigned data_n, unsigned *data_p, short l) {
+    printf("%p %d %p %d %p %u\n", d, sz, data, data_n, data_p, l);
     *d = sz;
     for (unsigned s = 0; s != sz; ++s) {
-        if (rd->data_p == rd->data_m) {
+        if (*data_p == data_n) {
             runtime_error(1, l);
         }
-        *(++d) = rd->data[(rd->data_p)++];
+        *(++d) = data[*data_p++];
     }
 }
 
-void mat_read2(struct Mat *m, struct Data *rd, short l) {
+void mat_read2(struct Mat *m, double *data, unsigned data_n, unsigned *data_p, short l) {
     if (m->mat->rows > m->dim->rows || m->mat->cols > m->dim->cols) {
         runtime_error(6, l);
     }
     double *d = m->data + m->dim->cols + 1;
     for (unsigned r = 0; r != m->mat->rows; ++r) {
         for (unsigned c = 0; c != m->mat->cols; ++c) {
-            if (rd->data_p == rd->data_m) {
+            if (*data_p == data_n) {
                 runtime_error(1, l);
             }
-            *(d + c + 1) = rd->data[(rd->data_p)++];
+            *(d + c + 1) = data[*data_p++];
         }
         d += m->dim->cols + 1;
     }
 }
 
-void mat_read_str(char**str, unsigned sz, struct Data *rd, short l) {
-    char **data = (char **)(rd->data + rd->data_m);
+void mat_read_str(char**str, unsigned sz, char **data_str, unsigned data_str_n, unsigned *data_str_p, short l) {
     for (unsigned s = 0; s != sz; ++s) {
-        if (rd->data_p_s == rd->data_m_s) {
+        if (*data_str_p == data_str_n) {
             runtime_error(1, l);
         }
         if (*++str) {
             free((void *)(*str));
         }
-        *str = strdup(data[(rd->data_p_s)++]);
+        *str = str_dup(data_str[*data_str_p++]);
     }
 }
 
@@ -448,14 +445,14 @@ void mat_zer_con_idn_dim(struct Mat *m, int t, short l) {
     }
 }
 
-void mat_input(double *d, unsigned *sz, double *num, short l) {
+void mat_input(double *d, unsigned sz, double *num, short l) {
     char buffer[TmpBufSz];
     unsigned s = 0;
     print_string("? ");
     fgets(buffer, TmpBufSz, stdin);
     char *p = buffer, *next;
-    while (*p >= ' ' && s <= *sz) {
-        while ((next = strchr(p, ',')) != 0 && s < *sz) {
+    while (*p >= ' ' && s <= sz) {
+        while ((next = strchr(p, ',')) != 0 && s < sz) {
             *next = '\0';
             sscanf(p, "%lf", ++d);
             ++s;
@@ -463,7 +460,7 @@ void mat_input(double *d, unsigned *sz, double *num, short l) {
         }
         p += sscanf(p, "%lf", ++d);
         ++s;
-        if (*p == '&' && s <= *sz) {
+        if (*p == '&' && s <= sz) {
             print_string("? ");
             fgets(buffer, TmpBufSz, stdin);
             p = buffer;
@@ -472,7 +469,7 @@ void mat_input(double *d, unsigned *sz, double *num, short l) {
     *num = s;
 }
 
-void change_from_string(unsigned char **s, double *d, unsigned sz, short l) {
+void change_from_string(char **s, double *d, unsigned sz, short l) {
     unsigned len = strlen(*s);
     if (len > sz) {
         runtime_error(6, l);
@@ -483,11 +480,8 @@ void change_from_string(unsigned char **s, double *d, unsigned sz, short l) {
     d[0] = len;
 }
 
-void change_to_string(unsigned char **s, double *d, unsigned sz, short l) {
+void change_to_string(char **s, double *d, unsigned sz, short l) {
     unsigned len = d[0];
-    if (len > MaxString) {
-        runtime_error(10, l);
-    }
     if (*s) {
         free(*s);
     }
@@ -498,7 +492,7 @@ void change_to_string(unsigned char **s, double *d, unsigned sz, short l) {
     (*s)[len] = '\0';
 }
 
-void input_number(double *n) {
+void read_number(double *n) {
     static bool prompt = true;
     char buffer[TmpBufSz];
     if (prompt) {
@@ -517,20 +511,24 @@ void input_number(double *n) {
     ++vpos;
 }
 
-char *input_string() {
-    char buffer[MaxString];
-    char *p = fgets(buffer, MaxString, stdin);
-    p = strchr(buffer, '\n');
+void read_string(char *s, unsigned n) {
+    char *p = strchr(fgets(s, n, stdin), '\n');
     if (p) {
         *p = '\0';
     }
-    p = buffer;
-    while (*p == ' ') {
-        ++p;
+    char *q = p;
+    while (*q == ' ') {
+        ++q;
+    }
+    if (q > p) {
+        char *z = p;
+        while (*q) {
+            *z++ = *q++;
+        }
+        *z = '\0';
     }
     pos = 0;
     ++vpos;
-    return strdup(p);
 }
 
 double random_lcg(unsigned seed) {
@@ -549,8 +547,4 @@ double cot(double n) {
 
 double sgn(double n) {
     return (n > 0.0) ? 1.0 : (n < 0.0) ? -1.0 : 0.0;
-}
-
-int main() {
-    return basic_run();
 }

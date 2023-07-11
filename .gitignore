@@ -22,3 +22,10 @@ docs/
 
 # Code coverage
 *.lst
+
+# Other files for project
+*.bas
+Parser.d
+dbasic
+a.out
+d.m4

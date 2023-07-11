@@ -1,59 +1,13 @@
 import std.stdio : writeln, write;
+import std.format : format;
 import Node : Node;
 import SymbolTable : SymbolTable, Edition;
+import Target : gepDim, gepDim2, gepStringDim;
 
 public enum Op { Add, Sub, Mul, Div, Exp, Neg }
 public immutable int number_fp_regs = 8;
 
 class Expr : Node {
-    protected enum Register { Available, InUse, Reserved }
-    static private Register[number_fp_regs] regs;
-    static void clearRegs() {
-        regs[0] = regs[1] = Register.Reserved; // d0, d1, s0, s1, s2, s3
-        foreach(ref r; regs) {
-            if (r == Register.InUse) {
-                r = Register.Available;
-            }
-        }
-    }
-    static int allocateReg() {
-        for (int r = number_fp_regs - 1; r >= 0; --r) {
-            if (regs[r] == Register.Available) {
-                regs[r] = Register.InUse;
-                return r;
-            }
-        }
-        throw new Exception("ILLEGAL FORMULA");
-    }
-    static void deallocateReg(int r) {
-        if (regs[r] == Register.InUse) {
-            regs[r] = Register.Available;
-            return;
-        }
-        throw new Exception("BAD CALL TO Expr.deallocateReg()");
-    }
-    static void push_fp_regs() {
-        auto sep = " ";
-        write("\tvpush\t{");
-        for (int r = 0; r < regs.length; ++r) {
-            if (regs[r] == Register.InUse) {
-                write(sep, "d", r);
-                sep = ", ";
-            }
-        }
-        writeln(" }");
-    }
-    static void pop_fp_regs() {
-        auto sep = " ";
-        write("\tvpop\t{");
-        for (int r = 0; r < regs.length; ++r) {
-            if (regs[r] == Register.InUse) {
-                write(sep, "d", r);
-                sep = ", ";
-            }
-        }
-        writeln(" }");
-    }
     private int result_reg;
     protected void setResult(int r) {
         result_reg = r;
@@ -72,9 +26,8 @@ class Constant : Expr {
         constant = n;
     }
     override void codegen() {
-        setResult(allocateReg());
-        writeln("\tadrl\tr0, ._c", constant);
-        writeln("\tvldr.f64\td", result, ", [r0]");
+        setResult(reg);
+        writeln(format("    %%%d = load double, double* @_C%d", result, constant));
     }
 }
 
@@ -85,9 +38,8 @@ class Identifier : Expr {
         symtab.initializeId(ident);
     }
     override void codegen() {
-        setResult(allocateReg());
-        writeln("\tadrl\tr0, .", symtab.getId(ident));
-        writeln("\tvldr.f64\td", result, ", [r0]");
+        setResult(reg);
+        writeln(format("    %%%d = load double, double* %%%s", result, symtab.getId(ident)));
     }
 }
 
@@ -99,48 +51,30 @@ class Dim : Expr {
     }
     override void codegen() {
         left.codegen();
-        setResult((cast(Expr)left).result);
-        writeln("\tvcvt.s32.f64\ts0, d", result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._size", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._data", symtab.getId(ident));
-        writeln("\tadd\tr0, r1, r0, LSL #3"); // r0 is index
-        writeln("\tvldr.f64\td", result, ", [r0]");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)left).result));
+        auto gep = gepDim(this, ident, idx);
+        setResult(reg);
+        writeln(format("    %%%d = load double, double* %%%d", result, gep));
     }
 }
 
 class Dim2 : Expr {
     private int ident;
-    private Expr row, col;
     this(int i, Expr idx1, Expr idx2) {
         ident = i;
-        row = idx1;
-        col = idx2;
+        left = new Node(idx1, idx2);
     }
     override void codegen() {
-        row.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", row.result);
-        writeln("\tvmov\tr0, s0");
-        deallocateReg(row.result);
-        writeln("\tpush\t{ r0 }");
-        col.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", col.result);
-        writeln("\tvmov\tr2, s0");
-        setResult(col.result);
-        writeln("\tpop\t{ r1 }");
-        writeln("\tadrl\tr0, ._size2", symtab.getId(ident));
-        writeln("\tldr\tr3, [r0, #4]"); // sz2
-        writeln("\tadd\tr3, r3, #1");
-        writeln("\tmla\tr3, r1, r3, r2"); // idx1 * (sz2 + 1) + idx2
-        writeln("\tadrl\tr0, ._data2", symtab.getId(ident));
-        writeln("\tadd\tr0, r0, r3, LSL#3");
-        writeln("\tvldr.f64\td", result, ", [r0]");
+        left.left.codegen();
+        auto idx1 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx1, (cast(Expr)(left.left)).result));
+        left.right.codegen();
+        auto idx2 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx2, (cast(Expr)(left.right)).result));
+        auto gep = gepDim2(this, ident, idx1, idx2);
+        setResult(reg);
+        writeln(format("    %%%d = load double, double* %%%d", result, gep));
     }
 }
 
@@ -156,37 +90,43 @@ class Operation : Expr {
             throw new Exception("NULL EXPRESSION");
         }
         left.codegen();
-        setResult((cast(Expr)left).result); // no need for allocateReg()
         if (right) {
             right.codegen();
-            deallocateReg((cast(Expr)right).result);
         }
+        setResult(reg);
         switch (op) {
             case Op.Add:
-                writeln("\tvadd.f64\td", result, ", d", (cast(Expr)left).result, ", d", (cast(Expr)right).result);
+                writeln(format("    %%%d = fadd double %%%d, %%%d",
+                    result, (cast(Expr)left).result, (cast(Expr)right).result));
                 break;
             case Op.Sub:
-                writeln("\tvsub.f64\td", result, ", d", (cast(Expr)left).result, ", d", (cast(Expr)right).result);
+                writeln(format("    %%%d = fsub double %%%d, %%%d",
+                    result, (cast(Expr)left).result, (cast(Expr)right).result));
                 break;
             case Op.Mul:
-                writeln("\tvmul.f64\td", result, ", d", (cast(Expr)left).result, ", d", (cast(Expr)right).result);
+                writeln(format("    %%%d = fmul double %%%d, %%%d",
+                    result, (cast(Expr)left).result, (cast(Expr)right).result));
                 break;
             case Op.Div:
-                writeln("\tvdiv.f64\td", result, ", d", (cast(Expr)left).result, ", d", (cast(Expr)right).result);
+                writeln(format("    %%%d = fdiv double %%%d, %%%d",
+                    result, (cast(Expr)left).result, (cast(Expr)right).result));
                 break;
             case Op.Exp:
-                writeln("\tvmov.f64\td0, d", (cast(Expr)left).result);
-                writeln("\tvmov.f64\td1, d", (cast(Expr)right).result);
-                push_fp_regs();
-                if (symtab.edition < Edition.Third) {
-                    writeln("\tbl\tfabs(PLT)"); // recreate bug in early editions
+                if (symtab.edition < Edition.Third) { // recreate bug in early editions
+                    auto pos = result;
+                    writeln(format("    %%%d = call double @fabs(double %%%d)",
+                        pos, (cast(Expr)left).result));
+                    setResult(reg);
+                    writeln(format("    %%%d = call double @pow(double %%%d, double %%%d)",
+                        result, pos, (cast(Expr)right).result));
                 }
-                writeln("\tbl\tpow(PLT)");
-                pop_fp_regs();
-                writeln("\tvmov.f64\td", result, ", d0");
+                else {
+                    writeln(format("    %%%d = call double @pow(double %%%d, double %%%d)",
+                        result, (cast(Expr)left).result, (cast(Expr)right).result));
+                }
                 break;
             case Op.Neg:
-                writeln("\tvneg.f64\td", result, ", d", (cast(Expr)left).result);
+                writeln(format("    %%%d = fneg double %%%d", result, (cast(Expr)left).result));
                 break;
             default:
                 throw new Exception("BAD Op");
@@ -206,115 +146,142 @@ class MathFn : Expr {
     override void codegen() {
         if (fn_ident != "RND") {
             left.codegen();
-            setResult((cast(Expr)left).result); // no need for allocateReg()
-            writeln("\tvmov.f64\td0, d", result);
         }
-        else {
-            setResult(allocateReg());
-        }
-        push_fp_regs(); // is this necessary?
+        setResult(reg);
         switch (fn_ident) {
             case "SQR":
-                writeln("\tbl\tsqrt(PLT)");
+                writeln(format("    %%%d = call double @sqrt(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "SIN":
-                writeln("\tbl\tsin(PLT)");
+                writeln(format("    %%%d = call double @sin(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "COS":
-                writeln("\tbl\tcos(PLT)");
+                writeln(format("    %%%d = call double @cos(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "TAN":
-                writeln("\tbl\ttan(PLT)");
+                writeln(format("    %%%d = call double @tan(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
-            case "COT":
-                writeln("\tbl\tcot(PLT)"); // user function
+            case "COT": // user function
+                writeln(format("    %%%d = call double @cot(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "ASN":
-                writeln("\tbl\tasin(PLT)");
+                writeln(format("    %%%d = call double @asin(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "ACS":
-                writeln("\tbl\tacos(PLT)");
+                writeln(format("    %%%d = call double @acos(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "ATN":
-                writeln("\tbl\tatan(PLT)");
+                writeln(format("    %%%d = call double @atan(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "INT":
                 if (symtab.edition >= Edition.Third) {
-                    writeln("\tbl\tfloor(PLT)");
+                    writeln(format("    %%%d = call double @floor(double %%%d)",
+                        result, (cast(Expr)left).result));
                 }
                 else {
-                    writeln("\tvcmp.f64\td0, #0");
-                    writeln("\tvmrs\tAPSR_nzcv, FPSCR");
-                    writeln("\tblgt\tfloor(PLT)");
-                    writeln("\tbllt\tceil(PLT)");
+                    int compare_result = result;
+                    writeln(format("    %%%d = fcmp oge double %%%d, 0.0",
+                        compare_result, (cast(Expr)left).result));
+                    auto floor_result = reg;
+                    writeln(format("    %%%d = call double @floor(double %%%d)",
+                        floor_result, (cast(Expr)left).result));
+                    auto ceil_result = reg;
+                    writeln(format("    %%%d = call double @ceil(double %%%d)",
+                        ceil_result, (cast(Expr)left).result));
+                    setResult(reg);
+                    writeln(format("    %%%d = select i1 %%%d, double %%%d, double %%%d",
+                        result, compare_result, floor_result, ceil_result));
                 }
                 break;
             case "LOG":
-                writeln("\tbl\tlog(PLT)");
+                writeln(format("    %%%d = call double @log(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "EXP":
-                writeln("\tbl\texp(PLT)");
+                writeln(format("    %%%d = call double @exp(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             case "RND":
-                writeln("\tmov\tr0, #0");
-                writeln("\tbl\trandom_lcg(PLT)");
+                writeln(format("    %%%d = call double @random_lcg(i32 0)", result));
                 break;
             case "ABS":
-                writeln("\tbl\tfabs(PLT)");
+                writeln(format("    %%%d = call double @fabs(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
-            case "SGN":
-                writeln("\tbl\tsgn(PLT)"); // user function
+            case "SGN": // user function
+                writeln(format("    %%%d = call double @sgn(double %%%d)",
+                    result, (cast(Expr)left).result));
                 break;
             default:
                 throw new Exception("BAD MathFn");
         }
-        pop_fp_regs();
-        writeln("\tvmov.f64\td", result, ", d0");
     }
 }
 
 class FnCall : Expr {
-    private int fn_id;
+    private int fn_id, ret;
     private Expr[] args;
     this(int n, Expr[] e) {
         fn_id = n;
         args = e;
         symtab.addFunction(n, symtab.Function(new int[0], null, -1, e.length));
         symtab.installId("FN" ~ symtab.getId(fn_id));
+        ret = symtab.gosub; // note: only used my multi-line functions
     }
     override void codegen() {
         auto func = symtab.getFunction(fn_id);
         foreach(i, arg; args) {
             arg.codegen();
-            writeln("\tadrl\tr0, .", symtab.getId(func.param_idents[i]));
-            writeln("\tvstr.f64\td", arg.result, ", [r0]");
+            writeln(format("    store double %%%d, double* %%%s",
+                (cast(Expr)arg).result, symtab.getId(func.param_idents[i])));
         }
         if (func.fn_expr !is null) {
             func.fn_expr.codegen();
             setResult(func.fn_expr.result);
+            symtab.simpleFunction(ret);
         }
         else {
-            setResult(allocateReg());
-            writeln("\tadd\tr14, pc, #4");
-            writeln("\tpush\t{ r14 }");
-            writeln("\tb\t.", func.fn_line);
-            writeln("\tnop"); // for some armv3
-            writeln("\tadrl\tr0, .FN", symtab.getId(fn_id));
-            writeln("\tvldr.f64\td", result, ", [r0]");
+            auto ptr = reg;
+            writeln(format("    %%%d = load i32, i32* %%_RETURN_P", ptr));
+            auto inc = reg;
+            writeln(format("    %%%d = add i32 %%%d, 1", inc, ptr));
+            auto cmp = reg;
+            writeln(format("    %%%d = icmp ne i32 %%%d, %d", cmp, inc, symtab.max_depth));
+            auto fct = reg;
+            writeln(format("    %%%d = select i1 %%%d, void (i32, i16)* @dummy_fct, void (i32, i16)* @runtime_error", fct, cmp));
+            writeln(format("    call void %%%d(i32 2, i16 %d)", fct, symtab.line)); // error: too many nested calls
+            writeln(format("    store i32 %%%d, i32* %%_RETURN_P", inc));
+            auto gep = reg;
+            writeln(format("    %%%d = getelementptr [%d x i32], [%d x i32]* %%_RETURN, i32 0, i32 %%%d",
+                gep, symtab.max_depth, symtab.max_depth, ptr));
+            writeln(format("    store i32 %d, i32* %%%d", ret, gep));
+            writeln("    br label %.", func.fn_line);
+            writeln("  return", ret, ":");
+            setResult(reg);
+            writeln(format("    %%%d = load double, double* %%FN%s",
+                result, symtab.getId(fn_id)));
         }
     }
 }
 
-class StringExpr : Node {
+class StringExpr : Expr {
     this() {
         // empty
     }
     override void codegen() {
-        writeln("\tteq\tr0, #0");
-        writeln("\tmoveq\tr0, #12"); // error: uninitialized string
-        writeln("\tmoveq\tr1, #", symtab.line & 0xff00);
-        writeln("\torreq\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tbleq\truntime_error(PLT)");
+        auto cmp = reg;
+        writeln(format("    %%%d = icmp ne i8* %%%d, null", cmp, result));
+        auto fct = reg;
+        writeln(format("    %%%d = select i1 %%%d, void (i32, i16)* @dummy_fct, void (i32, i16)* @runtime_error", fct, cmp));
+        writeln(format("    call void %%%d(i32 8, i16 %d)", fct, symtab.line)); // error: uninitialized string
     }
 }
 
@@ -325,8 +292,8 @@ class StringVariable : StringExpr {
         symtab.initializeString(ident);
     }
     override void codegen() {
-        writeln("\tadrl\tr0, .", symtab.getId(ident), "_");
-        writeln("\tldr\tr0, [r0]");
+        setResult(reg);
+        writeln(format("    %%%d = load i8*, i8** %%%s_", result, symtab.getId(ident)));
         super.codegen();
     }
 }
@@ -337,7 +304,8 @@ class StringConstant : StringExpr {
         ident = id;
     }
     override void codegen() {
-        writeln("\tadrl\tr0, ._s", ident);
+        setResult(reg);
+        writeln(format("    %%%d = bitcast [ %d x i8 ]* @_S%d to i8*", result, symtab.getStrLen(ident) + 1, ident));
         super.codegen();
     }
 }
@@ -350,18 +318,11 @@ class StringIndexed : StringExpr {
     }
     override void codegen() {
         left.codegen();
-        writeln("\tvcvt.s32.f64\ts0, d", (cast(Expr)left).result);
-        writeln("\tvmov\tr0, s0");
-        writeln("\tadrl\tr1, ._sizeS", symtab.getId(ident));
-        writeln("\tldr\tr1, [r1]");
-        writeln("\tcmp\tr0, r1");
-        writeln("\tmovgt\tr0, #4"); // error: index out of bounds
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr1, ._dataS", symtab.getId(ident));
-        writeln("\tadd\tr1, r1, r0, LSL #2");
-        writeln("\tldr\tr0, [r1]");
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)left).result));
+        auto gep = gepStringDim(this, ident, idx);
+        setResult(reg);
+        writeln(format("    %%%d = load i8*, i8** %%%d", result, gep));
         super.codegen();
     }
 }
