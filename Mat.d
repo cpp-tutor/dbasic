@@ -17,7 +17,6 @@ class MatRead : Node {
     }
     override void codegen() {
         left.codegen();
-        throw new Exception("NOT YET IMPLEMENTED");
         auto sz = symtab.DimSize(ident) + 1;
         auto idx = reg;
         writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)(left)).result));
@@ -28,33 +27,12 @@ class MatRead : Node {
         writeln(format("    call void %%%d(i32 4, i16 %d)", fct, symtab.line)); // error: index out of bounds
         auto dim = reg;
         writeln(format("    %%%d = bitcast [ %d x double ]* %%_DATA1_%s to double*", dim, sz, symtab.getId(ident)));
-        auto arr = reg;
-        writeln(format("    %%%d = load double*, double** @_DATA", arr));
-        auto gep1 = reg;
-        writeln(format("    %%%d = getelementptr [ %d x double ], [ %d x double ]* %%%d, i32 0, i32 0",
-            gep1, symtab.dataN, symtab.dataN, arr));
-        auto elem = reg;
-        writeln(format("    %%%d = load double, double* %%%d", elem, gep1));
+        auto gep = reg;
+        writeln(format("    %%%d = getelementptr i32, i32* %%_DATA_NUM_P, i32 0", gep));
         auto data = reg;
-        writeln(format("    %%%d = bitcast double %%%d to double*", data, elem));
-        auto gep2 = reg;
-        writeln(format("    %%%d = getelementptr double*, double** %%_DATA_NUM_P, i32 0 ", gep2));
-        writeln(format("    call void @mat_read(double* %%%d, i32 %%%d, double* %%%d, i32 %d, double* %%%d, i16 %u)",
-            dim, idx, data, symtab.dataN, gep2, symtab.line));
-        /*writeln("\tvcvt.s32.f64\ts0, d", elems.result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tadrl\tr0, ._size", symtab.getId(ident));
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tcmp\tr1, r2");
-        writeln("\tmovgt\tr0, #", 6); // error: DIM too small
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr0, ._data", symtab.getId(ident));
-        writeln("\tadrl\tr2, ._data_ptr");
-        writeln("\tmov\tr3, #", symtab.line & 0xff00);
-        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
-        writeln("\tbl\tmat_read(PLT)");*/
+        writeln(format("    %%%d = bitcast [ %d x double ]* @_DATA to double*", data, symtab.dataN));
+        writeln(format("    call void @mat_read(double* %%%d, i32 %%%d, double* %%%d, i32 %d, i32* %%%d, i16 %u)",
+            dim, idx, data, symtab.dataN, gep, symtab.line));
         super.codegen();
     }
 }
@@ -64,30 +42,30 @@ class MatRead2 : Node {
     private Expr cols, rows;
     this(int id, Expr idx1, Expr idx2) {
         ident = id;
-        rows = idx1;
-        cols = idx2;
+        left = new Node(idx1, idx2);
         symtab.initializeDim2(ident);
         symtab.initializeMat(ident, true);
         symtab.useData(true);
     }
     override void codegen() {
-        cols.codegen();
-        /*writeln("\tvcvt.s32.f64\ts0, d", cols.result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tpush\t{ r1 }");*/
-        rows.codegen();
-        throw new Exception("NOT YET IMPLEMENTED");
-        /*writeln("\tvcvt.s32.f64\ts0, d", rows.result);
-        writeln("\tvmov\tr2, s0");
-        writeln("\tpop\t{ r1 }");
-        writeln("\tadrl\tr0, ._mat", symtab.getId(ident));
-        writeln("\tstr\tr2, [r0, #0]");
-        writeln("\tstr\tr1, [r0, #4]");
-        adrMat(0, "param1", symtab.getId(ident));
-        writeln("\tadrl\tr1, ._data_ptr");
-        writeln("\tmov\tr2, #", symtab.line & 0xff00);
-        writeln("\torr\tr2, r2, #", symtab.line & 0xff);
-        writeln("\tbl\tmat_read2(PLT)");*/
+        left.left.codegen();
+        auto idx1 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx1, (cast(Expr)(left.left)).result));
+        auto gep1 = reg;
+        writeln(format("    %%%d = getelementptr %%struct.Dims, %%struct.Dims* %%_MAT_%s, i32 0, i32 0", gep1, symtab.getId(ident)));
+        writeln(format("    store i32 %%%d, i32* %%%d", idx1, gep1));
+        left.right.codegen();
+        auto idx2 = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx2, (cast(Expr)(left.right)).result));
+        auto gep2 = reg;
+        writeln(format("    %%%d = getelementptr %%struct.Dims, %%struct.Dims* %%_MAT_%s, i32 0, i32 1", gep2, symtab.getId(ident)));
+        writeln(format("    store i32 %%%d, i32* %%%d", idx2, gep2));
+        auto gep3 = reg;
+        writeln(format("    %%%d = getelementptr i32, i32* %%_DATA_NUM_P, i32 0", gep3));
+        auto data = reg;
+        writeln(format("    %%%d = bitcast [ %d x double ]* @_DATA to double*", data, symtab.dataN));
+        writeln(format("    call void @mat_read2(%%struct.Mat* %%%d, double* %%%d, i32 %d, i32* %%%d, i16 %d)",
+            matrix(this, ident), data, symtab.dataN, gep3, symtab.line));
         super.codegen();
     }
 }
@@ -332,27 +310,28 @@ class MatReadString : Node {
     private Expr elems;
     this(int id, Expr idx) {
         ident = id;
-        elems = idx;
+        left = idx;
         symtab.initializeDimString(ident); // note: not Dim2
         symtab.useData(false, true);
     }
     override void codegen() {
-        elems.codegen();
-        throw new Exception("NOT YET IMPLEMENTED");
-        /*writeln("\tvcvt.s32.f64\ts0, d", elems.result);
-        writeln("\tvmov\tr1, s0");
-        writeln("\tadrl\tr0, ._sizeS", symtab.getId(ident));
-        writeln("\tldr\tr2, [r0]");
-        writeln("\tcmp\tr1, r2");
-        writeln("\tmovgt\tr0, #", 6); // error: DIM too small
-        writeln("\tmovgt\tr1, #", symtab.line & 0xff00);
-        writeln("\torrgt\tr1, r1, #", symtab.line & 0xff);
-        writeln("\tblgt\truntime_error(PLT)");
-        writeln("\tadrl\tr0, ._dataS", symtab.getId(ident));
-        writeln("\tadrl\tr2, ._data_ptr");
-        writeln("\tmov\tr3, #", symtab.line & 0xff00);
-        writeln("\torr\tr3, r3, #", symtab.line & 0xff);
-        writeln("\tbl\tmat_read_str(PLT)");*/
+        left.codegen();
+        auto sz = symtab.strDimSize(ident) + 1;
+        auto idx = reg;
+        writeln(format("    %%%d = fptosi double %%%d to i32", idx, (cast(Expr)(left)).result));
+        auto cmp = reg;
+        writeln(format("    %%%d = icmp ult i32 %%%d, %d", cmp, idx, sz));
+        auto fct = reg;
+        writeln(format("    %%%d = select i1 %%%d, void (i32, i16)* @dummy_fct, void (i32, i16)* @runtime_error", fct, cmp));
+        writeln(format("    call void %%%d(i32 4, i16 %d)", fct, symtab.line)); // error: index out of bounds
+        auto dim = reg;
+        writeln(format("    %%%d = bitcast [ %d x i8* ]* %%_DATAS_%s to i8**", dim, sz, symtab.getId(ident)));
+        auto gep = reg;
+        writeln(format("    %%%d = getelementptr i32, i32* %%_DATA_STR_P, i32 0", gep));
+        auto data = reg;
+        writeln(format("    %%%d = bitcast [ %d x i8* ]* @_DATA_STR to i8**", data, symtab.dataStrN));
+        writeln(format("    call void @mat_read_str(i8** %%%d, i32 %%%d, i8** %%%d, i32 %d, i32* %%%d, i16 %u)",
+            dim, idx, data, symtab.dataStrN, gep, symtab.line));
         super.codegen();
     }
 }
@@ -366,10 +345,11 @@ class MatPrintString : Node {
         symtab.initializeDimString(ident);
     }
     override void codegen() {
-        throw new Exception("NOT YET IMPLEMENTED");
-        /*writeln("\tadrl\tr0, ._dataS", symtab.getId(ident));
-        writeln("\tmov\tr1, #", packed ? 1 : 0);
-        writeln("\tbl\tmat_print_str(PLT)");*/
+        auto dim = reg;
+        writeln(format("    %%%d = bitcast [ %d x i8* ]* %%_DATAS_%s to i8**",
+            dim, symtab.strDimSize(ident) + 1, symtab.getId(ident)));
+        writeln(format("    call void @mat_print_str(i8** %%%d, i1 %s)",
+            dim, packed ? "true" : "false"));
         super.codegen();
     }
 }

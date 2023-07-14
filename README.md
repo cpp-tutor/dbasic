@@ -137,12 +137,16 @@ Wikipedia: https://en.wikipedia.org/wiki/Dartmouth_BASIC
 
 ## Motivation and Roadmap
 
-The intention is to recreate the original programming environment that existed in the mid- to late 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
+The intention is to recreate the original programming environment that existed in the mid- to late- 1960s at Dartmouth College running on a GE-225 mainframe and accessed by teletype terminals, having been inspired by the book "Endless Loop" by Mark Jones Lorenzo. The compiler is the major part of this project.
 
 Ultimately support for all of the early Dartmouth BASICs (First thru Sixth) is envisaged; there is a compiler switch to turn functionality on and off (`./dbasic 1` enables only First Edition keywords, for example). The complete set of keywords up to Basic The Fourth (1968) are available; the current focus is on improving the quality of the code supporting this Edition.
 
 * 2023/07/11: Tag 0.90.0 (WIP) implementation of Basic The Fourth (some matrix operations not implemented in LLVM yet) 
 
+* 2023/07/13: Tag 0.91.1 (WIP) implementation of Basic The Fourth (added missing Target.d and updated dbasic.exe in release)
+
+* 2023/07/14: Tag 0.92.1 Full implementation of Basic The Fourth (all examples work under Windows and Linux except example4-p66a.bas)
+
 ## Bugs
 
-Please do report bugs, together with correct or incorrect BASIC input files. Note that string DATA is not supported under Linux, and there are issues with code reachability errors. I would recommend testing against the latest release or master branch, even if an earlier BASIC Edition is being used, as bugs will have been fixed while new features are being added.
+Please do report bugs, together with correct or incorrect BASIC input files. I recommend testing against the latest release or master branch, even if an earlier BASIC Edition is being used, as bugs will have been fixed while new features are being added.

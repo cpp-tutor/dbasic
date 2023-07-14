@@ -193,13 +193,12 @@ void mat_print_str(char **str, bool packed) {
 }
 
 void mat_read(double *d, unsigned sz, double *data, unsigned data_n, unsigned *data_p, short l) {
-    printf("%p %d %p %d %p %u\n", d, sz, data, data_n, data_p, l);
     *d = sz;
     for (unsigned s = 0; s != sz; ++s) {
         if (*data_p == data_n) {
             runtime_error(1, l);
         }
-        *(++d) = data[*data_p++];
+        *++d = data[(*data_p)++];
     }
 }
 
@@ -213,7 +212,7 @@ void mat_read2(struct Mat *m, double *data, unsigned data_n, unsigned *data_p, s
             if (*data_p == data_n) {
                 runtime_error(1, l);
             }
-            *(d + c + 1) = data[*data_p++];
+            *(d + c + 1) = data[(*data_p)++];
         }
         d += m->dim->cols + 1;
     }
@@ -225,9 +224,9 @@ void mat_read_str(char**str, unsigned sz, char **data_str, unsigned data_str_n, 
             runtime_error(1, l);
         }
         if (*++str) {
-            free((void *)(*str));
+//            free((void *)(*str));
         }
-        *str = str_dup(data_str[*data_str_p++]);
+        *str = str_dup(data_str[(*data_str_p)++]);
     }
 }
 
@@ -454,12 +453,23 @@ void mat_input(double *d, unsigned sz, double *num, short l) {
     while (*p >= ' ' && s <= sz) {
         while ((next = strchr(p, ',')) != 0 && s < sz) {
             *next = '\0';
-            sscanf(p, "%lf", ++d);
-            ++s;
+            if (sscanf(p, "%lf", ++d) > 0) {
+                ++s;
+            }
+            else {
+                --d;
+            }
             p = next + 1;
         }
-        p += sscanf(p, "%lf", ++d);
-        ++s;
+        if (sscanf(p, "%lf", ++d) > 0) {
+            ++s;
+            while (*p >= ' ' && *p != '&') {
+                ++p;
+            }
+        }
+        else {
+            --d;
+        }
         if (*p == '&' && s <= sz) {
             print_string("? ");
             fgets(buffer, TmpBufSz, stdin);

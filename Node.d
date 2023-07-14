@@ -109,19 +109,23 @@ class Line : Node {
     override void codegen() {
         symtab.setLine(line, false);
         if (symtab.referencedLine(line)) {
-            //auto bump = reg, bump2 = reg;
             if (status != Control.Unreachable) {
                 writeln("    br label %.", line);
             }
             else {
                 status = Control.Reachable;
             }
-            //writeln("    unreachable\t; %", bump, " %", bump2);
             writeln("  .", line, ":");
         }
-        else { // FIXME
-            if (status == Control.Unreachable && right !is null) {
-                throw new Exception("UNREACHABLE CODE");
+        else {
+            if (status == Control.Unreachable) {
+                Node next = this;
+                while (next !is null && cast(Line)next !is null && !symtab.isReferenced((cast(Line)next).line)) {
+                    next = next.right;
+                }
+                if (next !is null && (cast(Line)next is null || !symtab.isReferenced((cast(Line)next).line))) {
+                    throw new Exception("UNREACHABLE CODE");
+                }
             }
         }
         super.codegen();
@@ -132,8 +136,6 @@ class Stop : Node {
     override void codegen() {
         writeln("    br label %exit");
         status = Control.Unreachable;
-        //auto bump = reg, bump2 = reg;
-        //writeln("    unreachable\t; %", bump, " %", bump2);
         super.codegen();
     }
 }
@@ -150,8 +152,6 @@ class Goto : Node {
         }
         writeln("    br label %.", line);
         status = Control.Unreachable;
-        //auto bump = reg, bump2 = reg;
-        //writeln("    unreachable\t\t; %", bump, " %", bump2);
         super.codegen();
     }
 }
@@ -183,8 +183,6 @@ class GoSub : Node {
             gep, symtab.max_depth, symtab.max_depth, ptr));
         writeln(format("    store i32 %d, i32* %%%d", ret, gep));
         writeln("    br label %.", line);
-        //auto bump = reg;
-        //writeln("    unreachable\t; %",  bump);
         writeln("  return", ret, ":");
         super.codegen();
     }
@@ -196,8 +194,6 @@ class Return : Node {
     override void codegen() {
         writeln("    br label %return");
         status = Control.Unreachable;
-        //auto bump = reg;
-        //writeln("    unreachable\t; %",  bump);
         super.codegen();
     }
 }
@@ -541,7 +537,7 @@ class InputString : Node {
         writeln(format("    %%%d = load i8*, i8** %%%s_", r, symtab.getId(ident)));
         writeln(format("    call void @free(i8* %%%d)", r));
         auto str = reg;
-        writeln(format("    %%%d = call i8* @malloc(i64 %u)", str, STRING_MAX));
+        writeln(format("    %%%d = call i8* @malloc(i32 %u)", str, STRING_MAX));
         writeln(format("    call void @read_string(i8* %%%d, i32 %u)", str, STRING_MAX));
         writeln(format("    store i8* %%%d, i8** %%%s_", str, symtab.getId(ident)));
         super.codegen();
@@ -621,7 +617,7 @@ class ChangeFromString : Node {
         auto data = reg;
         writeln(format("    %%%d = bitcast [ %d x double ]* %%_DATA1_%s to double*",
             data, symtab.DimSize(dim_id) + 1, symtab.getId(dim_id)));
-        writeln(format("    call void @change_from_string(i8* %%%d, double* %%%d, i32 %d, i16 %d)",
+        writeln(format("    call void @change_from_string(i8** %%%d, double* %%%d, i32 %d, i16 %d)",
             gep, data, symtab.DimSize(dim_id), symtab.line));
         super.codegen();
     }
@@ -641,7 +637,7 @@ class ChangeToString : Node {
         auto data = reg;
         writeln(format("    %%%d = bitcast [ %d x double ]* %%_DATA1_%s to double*",
             data, symtab.DimSize(dim_id) + 1, symtab.getId(dim_id)));
-        writeln(format("    call void @change_to_string(i8* %%%d, double* %%%d, i32 %d, i16 %d)",
+        writeln(format("    call void @change_to_string(i8** %%%d, double* %%%d, i32 %d, i16 %d)",
             gep, data, symtab.DimSize(dim_id), symtab.line));
         super.codegen();
     }
@@ -673,8 +669,6 @@ class OnGoto : Node {
         writeln("  ", label1, ":");
         writeln(format("    call void @runtime_error(i32 9, i16 %u)", symtab.line));
         writeln("    unreachable");
-        //auto bump = reg;
-        //writeln("    unreachable\t; %", bump);
         status = Control.Unreachable;
         super.codegen();
     }

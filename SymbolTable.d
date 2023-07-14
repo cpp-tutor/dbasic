@@ -97,6 +97,9 @@ class SymbolTable {
             lines[l] = Line.Referenced;
         }
     }
+    bool isReferenced(ushort l) {
+        return l in lines && lines[l] == Line.Referenced;
+    }
     int installId(string id) {
         auto pos = countUntil(id_list, id);
         if (pos != -1) {
@@ -285,6 +288,10 @@ class SymbolTable {
             string s = to!string(value);
             return (s.indexOf('.') != -1) ? s : s ~ ".0";
         };
+        auto gs = (int str_id) {
+            auto l = getStrLen(str_id) + 1;
+            return format("([%d x i8], [%d x i8]* @_S%d, i32 0, i32 0)", l, l, str_id); 
+        };
         foreach (i, c; constant_list) {
             writeln(format("@_C%u = private constant double %s", i, g(c)));
         }
@@ -296,7 +303,8 @@ class SymbolTable {
             writeln(format("@_DATA = private constant [ %u x double ] [ %-(double %s, %) ]", dataN, gen));
         }
         if (dataStrN) {
-            writeln(format("@_DATA_STR = private constant [ %u x i8* ] [ %-(i8* @_S%d, %) ]", dataStrN, data_str));
+            auto gen_str = data_str.map!(gs);
+            writeln(format("@_DATA_STR = private constant [ %u x i8* ] [ %-(i8* getelementptr inbounds %s, %) ]", dataStrN, gen_str));
         }
         writeln("\ndefine i32 @main() {");
         writeln("  entry:");

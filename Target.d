@@ -54,7 +54,7 @@ declare double @acos(double noundef %0) nounwind
 declare double @atan(double noundef %0) nounwind
 declare double @log(double noundef %0) nounwind
 declare double @exp(double noundef %0) nounwind
-declare i8* @malloc(i64 noundef %0) nounwind
+declare i8* @malloc(i32 noundef zeroext %0) nounwind
 declare void @free(i8* noundef %0) nounwind
 declare i32 @strcmp(i8* noundef %0, i8* noundef %1) nounwind
 declare i32 @time(i8* noundef %0) nounwind
